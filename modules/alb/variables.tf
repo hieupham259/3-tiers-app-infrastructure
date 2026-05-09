@@ -32,8 +32,8 @@ variable "target_port" {
 }
 
 variable "health_check_path" {
-  type        = string
-  default     = "/health"
+  type    = string
+  default = "/health"
 }
 
 variable "enable_waf" {

@@ -12,13 +12,25 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: terraform-apply-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  sync-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify envs/development and envs/production are in sync
+        run: bash scripts/verify-envs-in-sync.sh
+
   apply:
+    needs: sync-check
     runs-on: ubuntu-latest
     environment: ${{ github.ref == 'refs/heads/production' && 'production' || 'development' }}
     env:
       ENV_DIR: ${{ github.ref == 'refs/heads/production' && 'production' || 'development' }}
-      ACCOUNT_ID: ${{ github.ref == 'refs/heads/production' && '222222222222' || '111111111111' }}
+      ACCOUNT_ID: ${{ github.ref == 'refs/heads/production' && vars.PROD_ACCOUNT_ID || vars.DEV_ACCOUNT_ID }}
     defaults:
       run:
         working-directory: envs/${{ env.ENV_DIR }}
@@ -32,13 +44,25 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/gha-infra-apply
-          aws-region: ap-southeast-1
+          aws-region: us-east-1
 
       - name: Terraform init
         run: terraform init -no-color
 
       - name: Terraform plan
         run: terraform plan -no-color -out=tfplan -input=false
+
+      - name: Generate plan JSON
+        id: plan-json
+        run: terraform show -json tfplan > tfplan.json
+
+      - name: Check state preservation
+        id: check-state-preservation
+        uses: ./.github/actions/check-state-preservation
+        with:
+          plan-json-path: envs/${{ env.ENV_DIR }}/tfplan.json
+          commit-message: ${{ github.event.head_commit.message }}
+          pr-labels: '[]'
 
       - name: Terraform apply
         run: terraform apply -no-color -input=false tfplan

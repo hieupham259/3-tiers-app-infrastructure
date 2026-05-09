@@ -32,6 +32,8 @@ Resources:
   # --- Plan role: read-only AWS + read/write tfstate ---
   GhaInfraPlanRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RoleName: gha-infra-plan
       ManagedPolicyArns:
@@ -69,6 +71,8 @@ Resources:
   # --- Apply role: Admin + tfstate (only the matching branch) ---
   GhaInfraApplyRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RoleName: gha-infra-apply
       ManagedPolicyArns:
@@ -89,6 +93,8 @@ Resources:
   # --- Backend deploy role (push ECR + ECS update) ---
   GhaBackendDeployRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RoleName: gha-backend-deploy
       AssumeRolePolicyDocument:
@@ -130,13 +136,23 @@ Resources:
               - Effect: Allow
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
                 Resource: !Sub "arn:aws:ssm:*:${AWS::AccountId}:parameter/3-tiers-app/*"
+              # PassRole scoped to the current account and the project role
+              # prefix only (the ECS task and task-execution roles created by
+              # modules/iam-app-roles use the "3-tiers-app-<env>-task*" naming
+              # scheme). The trailing wildcard is intentional to cover both
+              # task and task-exec variants without per-env duplication.
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/3-tiers-app-*"
+                Condition:
+                  StringEquals:
+                    'iam:PassedToService': ecs-tasks.amazonaws.com
 
   # --- Frontend deploy role (S3 sync + CF invalidate) ---
   GhaFrontendDeployRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RoleName: gha-frontend-deploy
       AssumeRolePolicyDocument:

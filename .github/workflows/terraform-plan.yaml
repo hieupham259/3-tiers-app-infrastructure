@@ -1,5 +1,11 @@
 name: Terraform Plan
 
+# Required GitHub Actions Repository Variables (Settings -> Secrets and variables -> Actions -> Variables tab):
+#   DEV_ACCOUNT_ID  - 12-digit AWS account ID for the development account
+#   PROD_ACCOUNT_ID - 12-digit AWS account ID for the production account
+# These are stored as Variables (not Secrets) because account IDs are configuration, not credentials.
+# All workflows in this directory consume the same two variables; set them once at the repository level.
+
 on:
   pull_request:
     branches: [development, production]
@@ -28,8 +34,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { env: development, account_id: '111111111111' }
-          - { env: production, account_id: '222222222222' }
+          - { env: development, account_id: '${{ vars.DEV_ACCOUNT_ID }}' }
+          - { env: production, account_id: '${{ vars.PROD_ACCOUNT_ID }}' }
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -44,7 +50,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ matrix.account_id }}:role/gha-infra-plan
-          aws-region: ap-southeast-1
+          aws-region: us-east-1
 
       - name: Terraform fmt -check
         working-directory: .
@@ -60,6 +66,20 @@ jobs:
         id: plan
         run: terraform plan -no-color -out=tfplan -input=false
         continue-on-error: true
+
+      - name: Generate plan JSON
+        id: plan-json
+        if: steps.plan.outcome == 'success'
+        run: terraform show -json tfplan > tfplan.json
+
+      - name: Check state preservation
+        id: check-state-preservation
+        if: steps.plan.outcome == 'success'
+        uses: ./.github/actions/check-state-preservation
+        with:
+          plan-json-path: envs/${{ matrix.env }}/tfplan.json
+          commit-message: ${{ github.event.pull_request.title }}
+          pr-labels: ${{ toJson(github.event.pull_request.labels.*.name) }}
 
       - name: Comment plan on PR
         uses: actions/github-script@v7

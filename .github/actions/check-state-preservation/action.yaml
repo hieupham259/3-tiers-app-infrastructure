@@ -1,0 +1,40 @@
+name: Check state preservation
+description: >-
+  Parse a Terraform plan JSON file and fail when the plan would destroy or
+  replace a stateful resource that has not been explicitly acknowledged. This
+  is the third line of defense after iac-builder lifecycle blocks and the
+  prevent_destroy lifecycle setting.
+
+inputs:
+  plan-json-path:
+    description: >-
+      Path to the JSON output of `terraform show -json tfplan`. Path is
+      resolved relative to the current working directory of the calling step.
+    required: true
+  commit-message:
+    description: >-
+      Free-form text scanned for the magic string
+      `acknowledged-destroy:<resource_address>`. Typically the head commit
+      message on push or the pull request title on pull_request.
+    required: false
+    default: ''
+  pr-labels:
+    description: >-
+      JSON array of pull request label names. Each label is also scanned for
+      the magic string `acknowledged-destroy:<resource_address>`. Pass `[]`
+      when running outside of a pull_request event.
+    required: false
+    default: '[]'
+
+runs:
+  using: composite
+  steps:
+    - name: Run state preservation check
+      shell: bash
+      env:
+        PLAN_JSON_PATH: ${{ inputs.plan-json-path }}
+        COMMIT_MESSAGE: ${{ inputs.commit-message }}
+        PR_LABELS: ${{ inputs.pr-labels }}
+      run: |
+        chmod +x "$GITHUB_ACTION_PATH/check.sh"
+        "$GITHUB_ACTION_PATH/check.sh"

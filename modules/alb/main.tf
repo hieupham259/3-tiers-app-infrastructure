@@ -67,21 +67,48 @@ resource "aws_lb_target_group" "this" {
   tags = var.tags
 }
 
+# --- HTTP listener ---
+# When existing_acm_cert_arn is set, port 80 redirects to 443 (the typical
+# production posture). When no cert is provided yet (first-deploy bootstrap
+# before ACM is ready), port 80 returns a 503 fixed-response so the ALB does
+# not advertise an HTTPS endpoint that does not exist. This avoids the
+# infinite-redirect loop that occurs when the HTTPS listener is missing.
+# Resource label kept as http_redirect for state stability; the action is
+# selected dynamically below based on whether the cert is provided.
 resource "aws_lb_listener" "http_redirect" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
 
-  default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+  dynamic "default_action" {
+    for_each = var.existing_acm_cert_arn != null ? [1] : []
+    content {
+      type = "redirect"
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.existing_acm_cert_arn == null ? [1] : []
+    content {
+      type = "fixed-response"
+      fixed_response {
+        content_type = "text/plain"
+        message_body = "HTTPS listener not configured yet - ACM certificate is missing."
+        status_code  = "503"
+      }
     }
   }
 }
 
+# --- HTTPS listener ---
+# Conditional: only created once an ACM cert ARN is provided. The frontend
+# CloudFront and the public DNS records should not be flipped to this ALB
+# until the HTTPS listener exists.
 resource "aws_lb_listener" "https" {
   count             = var.existing_acm_cert_arn != null ? 1 : 0
   load_balancer_arn = aws_lb.this.arn

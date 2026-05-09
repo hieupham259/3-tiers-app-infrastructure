@@ -1,3 +1,8 @@
+output "db_instance_id" {
+  description = "RDS instance identifier (for CloudWatch DBInstanceIdentifier dimension)"
+  value       = aws_db_instance.this.id
+}
+
 output "endpoint" {
   description = "RDS endpoint (host:port)"
   value       = aws_db_instance.this.endpoint

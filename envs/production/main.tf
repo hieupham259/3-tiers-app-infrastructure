@@ -23,5 +23,7 @@ module "stack" {
   frontend_cf_cert_arn = var.frontend_cf_cert_arn
   hosted_zone_id       = var.hosted_zone_id
 
+  alarm_sns_topic_arn = var.alarm_sns_topic_arn
+
   tags = var.tags
 }

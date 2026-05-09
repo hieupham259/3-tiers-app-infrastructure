@@ -98,6 +98,14 @@ variable "hosted_zone_id" {
   description = "Route53 hosted zone ID (BYO)"
 }
 
+# --- Observability ---
+variable "alarm_sns_topic_arn" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = "SNS topic ARN that CloudWatch alarms publish to. Leave null to skip alarm actions (alarms still fire and appear in the console)."
+}
+
 # --- Tags ---
 variable "tags" {
   type    = map(string)

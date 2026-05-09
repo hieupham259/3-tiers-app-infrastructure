@@ -4,18 +4,18 @@ variable "github_org" {
 }
 
 variable "infra_repo" {
-  type        = string
-  default     = "3-tiers-app-infrastructure"
+  type    = string
+  default = "3-tiers-app-infrastructure"
 }
 
 variable "backend_repo" {
-  type        = string
-  default     = "3-tiers-app-backend"
+  type    = string
+  default = "3-tiers-app-backend"
 }
 
 variable "frontend_repo" {
-  type        = string
-  default     = "3-tiers-app-frontend"
+  type    = string
+  default = "3-tiers-app-frontend"
 }
 
 variable "allowed_branch" {

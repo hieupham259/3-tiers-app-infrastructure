@@ -40,9 +40,15 @@ variable "ecr_repository_url" {
 }
 
 variable "image_tag" {
-  type        = string
-  default     = "latest"
-  description = "Default image tag for the initial task. App repo overrides via aws ecs update-service."
+  type    = string
+  default = "latest"
+  # ECR repository uses image_tag_mutability = "IMMUTABLE", which prevents an
+  # existing tag from being overwritten but still allows "latest" to be used as
+  # the seed tag for the first push. The app deploy pipeline registers a new
+  # task definition with an immutable SHA-based tag on every release, and the
+  # ecs_task_definition resource ignores container_definitions changes, so
+  # Terraform never reconverges this value after the initial bootstrap.
+  description = "Default image tag for the initial task. The app deploy pipeline overrides this with an immutable SHA-based tag via aws ecs register-task-definition."
 }
 
 variable "rds_endpoint" {
@@ -62,18 +68,18 @@ variable "container_port" {
 }
 
 variable "task_cpu" {
-  type        = number
-  default     = 512
+  type    = number
+  default = 512
 }
 
 variable "task_memory" {
-  type        = number
-  default     = 1024
+  type    = number
+  default = 1024
 }
 
 variable "desired_count" {
-  type        = number
-  default     = 1
+  type    = number
+  default = 1
 }
 
 variable "existing_task_exec_role_arn" {

@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: bootstrap        # requires manual approval from one reviewer
     env:
-      AWS_REGION: ap-southeast-1
-      ACCOUNT_ID: ${{ inputs.account == 'production' && '222222222222' || '111111111111' }}
+      AWS_REGION: us-east-1
+      ACCOUNT_ID: ${{ inputs.account == 'production' && vars.PROD_ACCOUNT_ID || vars.DEV_ACCOUNT_ID }}
       ALLOWED_BRANCH: ${{ inputs.account == 'production' && 'production' || 'development' }}
     steps:
       - name: Checkout

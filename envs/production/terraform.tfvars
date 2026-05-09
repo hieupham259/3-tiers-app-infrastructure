@@ -1,5 +1,5 @@
 environment = "production"
-region      = "ap-southeast-1"
+region      = "us-east-1"
 
 # --- Network ---
 vpc_cidr = "10.20.0.0/16"
@@ -21,9 +21,14 @@ ecs_desired_count = 3
 
 # --- Domain (uncomment once Route53 + ACM are ready) ---
 # domain_name          = "myapp.example.com"
-# alb_acm_cert_arn     = "arn:aws:acm:ap-southeast-1:222222222222:certificate/<id>"
+# alb_acm_cert_arn     = "arn:aws:acm:us-east-1:222222222222:certificate/<id>"
 # frontend_cf_cert_arn = "arn:aws:acm:us-east-1:222222222222:certificate/<id>"
 # hosted_zone_id       = "Z01234567890ABCDEFGH"
+
+# --- Observability ---
+# Set to an SNS topic ARN once an on-call channel is wired up. Leave commented
+# to skip alarm actions (alarms still fire and are visible in CloudWatch).
+# alarm_sns_topic_arn = "arn:aws:sns:us-east-1:222222222222:ops-alerts"
 
 # --- Tags ---
 tags = {

@@ -13,7 +13,7 @@ S3 bucket (private) + CloudFront distribution with Origin Access Control (OAC).
 
 ## ACM cert location
 
-> CloudFront requires the ACM cert in `us-east-1` (N. Virginia). Create a separate cert in that region; do NOT share it with the ALB cert (ALB cert lives in `ap-southeast-1`).
+> CloudFront requires the ACM cert in `us-east-1` (N. Virginia). Create a separate cert in that region; do NOT share it with the ALB cert (ALB cert lives in `us-east-1`).
 
 ## Usage
 

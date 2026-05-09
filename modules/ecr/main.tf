@@ -11,6 +11,10 @@ resource "aws_ecr_repository" "this" {
     scan_on_push = var.scan_on_push
   }
 
+  # AES256 = ECR-managed key. KMS option exists but adds a per-region KMS key
+  # the platform team would have to manage; the application image content does
+  # not require a CMK (no regulatory mandate identified). Switch to "KMS" plus
+  # kms_key if customer-managed encryption becomes a requirement.
   encryption_configuration {
     encryption_type = "AES256"
   }
@@ -28,10 +32,10 @@ resource "aws_ecr_lifecycle_policy" "this" {
         rulePriority = 1
         description  = "Keep last ${var.image_retention_count} tagged images"
         selection = {
-          tagStatus     = "tagged"
+          tagStatus      = "tagged"
           tagPatternList = ["*"]
-          countType     = "imageCountMoreThan"
-          countNumber   = var.image_retention_count
+          countType      = "imageCountMoreThan"
+          countNumber    = var.image_retention_count
         }
         action = { type = "expire" }
       },

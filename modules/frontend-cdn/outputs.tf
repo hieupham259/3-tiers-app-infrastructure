@@ -1,5 +1,5 @@
 output "bucket_name" {
-  description = "S3 bucket name (cho aws s3 sync)"
+  description = "S3 bucket name (used by aws s3 sync)"
   value       = aws_s3_bucket.frontend.id
 }
 
@@ -9,12 +9,12 @@ output "bucket_arn" {
 }
 
 output "distribution_id" {
-  description = "CloudFront distribution ID (cho aws cloudfront create-invalidation)"
+  description = "CloudFront distribution ID (used by aws cloudfront create-invalidation)"
   value       = aws_cloudfront_distribution.this.id
 }
 
 output "distribution_domain" {
-  description = "CloudFront default domain (vd: dxxxx.cloudfront.net)"
+  description = "CloudFront default domain (e.g. dxxxx.cloudfront.net)"
   value       = aws_cloudfront_distribution.this.domain_name
 }
 

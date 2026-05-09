@@ -33,6 +33,11 @@ resource "aws_secretsmanager_secret" "db" {
   description             = "RDS master credentials for ${var.environment}"
   recovery_window_in_days = 7
   tags                    = var.tags
+
+  lifecycle {
+    # Prevent accidental destroy: deleting this secret strands the RDS master credentials and breaks every running ECS task until the secret is rotated and re-injected.
+    prevent_destroy = true
+  }
 }
 
 resource "aws_secretsmanager_secret_version" "db" {
@@ -72,11 +77,11 @@ resource "aws_db_instance" "this" {
   backup_window           = "16:00-17:00" # UTC = 23:00 ICT
   maintenance_window      = "sun:18:00-sun:19:00"
 
-  performance_insights_enabled = true
+  performance_insights_enabled    = true
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 
-  deletion_protection      = var.deletion_protection
-  skip_final_snapshot      = var.skip_final_snapshot
+  deletion_protection       = var.deletion_protection
+  skip_final_snapshot       = var.skip_final_snapshot
   final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.environment}-postgres-final-${formatdate("YYYYMMDD-hhmmss", timestamp())}"
 
   apply_immediately = false
@@ -84,6 +89,8 @@ resource "aws_db_instance" "this" {
   tags = merge(var.tags, { Name = "${var.environment}-postgres" })
 
   lifecycle {
-    ignore_changes = [final_snapshot_identifier, password]
+    # Prevent accidental destroy: this is the primary application database; recovery requires a snapshot restore and incurs full app downtime.
+    prevent_destroy = true
+    ignore_changes  = [final_snapshot_identifier, password]
   }
 }

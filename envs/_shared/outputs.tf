@@ -72,3 +72,18 @@ output "ecr_backend_url" {
   description = "ECR repository URL for the backend"
   value       = module.ecr_backend.repository_url
 }
+
+output "observability_ecs_cpu_alarm_arn" {
+  description = "ARN of the ECS CPU CloudWatch alarm"
+  value       = module.observability.ecs_cpu_alarm_arn
+}
+
+output "observability_rds_connections_alarm_arn" {
+  description = "ARN of the RDS connections CloudWatch alarm"
+  value       = module.observability.rds_connections_alarm_arn
+}
+
+output "observability_alb_5xx_alarm_arn" {
+  description = "ARN of the ALB 5xx CloudWatch alarm"
+  value       = module.observability.alb_5xx_alarm_arn
+}

@@ -97,3 +97,14 @@ module "frontend_cdn" {
   existing_hosted_zone_id = var.hosted_zone_id
   tags                    = local.common_tags
 }
+
+module "observability" {
+  source              = "../../modules/observability"
+  environment         = var.environment
+  ecs_cluster_name    = module.ecs_cluster.cluster_name
+  ecs_service_name    = module.ecs_service.service_name
+  rds_instance_id     = module.rds.db_instance_id
+  alb_arn_suffix      = module.alb.alb_arn_suffix
+  alarm_sns_topic_arn = var.alarm_sns_topic_arn
+  tags                = local.common_tags
+}

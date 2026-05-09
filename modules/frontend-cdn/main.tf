@@ -4,6 +4,11 @@ data "aws_caller_identity" "current" {}
 resource "aws_s3_bucket" "frontend" {
   bucket = "3-tiers-app-frontend-${data.aws_caller_identity.current.account_id}"
   tags   = merge(var.tags, { Name = "${var.environment}-frontend" })
+
+  lifecycle {
+    # Prevent accidental destroy: the bucket name is account-scoped and serves as the CloudFront origin; recreating it breaks the distribution and requires a full re-upload of frontend artifacts.
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
