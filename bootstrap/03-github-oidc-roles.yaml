@@ -1,0 +1,183 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  GitHub Actions OIDC roles for 3 repos: infrastructure / backend / frontend.
+  Deployed via CI/CD bootstrap.yaml. AllowedBranch must match the account
+  (development branch for the development account, production branch for the production account).
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Default: myorg
+  InfraRepo:
+    Type: String
+    Default: 3-tiers-app-infrastructure
+  BackendRepo:
+    Type: String
+    Default: 3-tiers-app-backend
+  FrontendRepo:
+    Type: String
+    Default: 3-tiers-app-frontend
+  AllowedBranch:
+    Type: String
+    AllowedValues: [development, production]
+    Description: Branch allowed to apply (development for the development account, production for the production account)
+  TfstateBucketName:
+    Type: String
+  TfstateBucketArn:
+    Type: String
+  TfstateKmsKeyArn:
+    Type: String
+
+Resources:
+  # --- Plan role: read-only AWS + read/write tfstate ---
+  GhaInfraPlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: gha-infra-plan
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+              StringLike:
+                'token.actions.githubusercontent.com:sub':
+                  !Sub "repo:${GitHubOrg}/${InfraRepo}:*"
+      Policies:
+        - PolicyName: tfstate-rw
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:ListBucket]
+                Resource: !Ref TfstateBucketArn
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource:
+                  - !Sub "${TfstateBucketArn}/3-tiers-app/*/terraform.tfstate"
+                  - !Sub "${TfstateBucketArn}/3-tiers-app/*/terraform.tfstate.tflock"
+              - Effect: Allow
+                Action: [kms:Encrypt, kms:Decrypt, kms:GenerateDataKey, kms:DescribeKey]
+                Resource: !Ref TfstateKmsKeyArn
+
+  # --- Apply role: Admin + tfstate (only the matching branch) ---
+  GhaInfraApplyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: gha-infra-apply
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+                'token.actions.githubusercontent.com:sub':
+                  !Sub "repo:${GitHubOrg}/${InfraRepo}:ref:refs/heads/${AllowedBranch}"
+
+  # --- Backend deploy role (push ECR + ECS update) ---
+  GhaBackendDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: gha-backend-deploy
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+                'token.actions.githubusercontent.com:sub':
+                  !Sub "repo:${GitHubOrg}/${BackendRepo}:ref:refs/heads/${AllowedBranch}"
+      Policies:
+        - PolicyName: ecr-ecs-deploy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecs:UpdateService
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:RegisterTaskDefinition
+                  - ecs:RunTask
+                Resource: '*'
+              - Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
+                Resource: !Sub "arn:aws:ssm:*:${AWS::AccountId}:parameter/3-tiers-app/*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/3-tiers-app-*"
+
+  # --- Frontend deploy role (S3 sync + CF invalidate) ---
+  GhaFrontendDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: gha-frontend-deploy
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+                'token.actions.githubusercontent.com:sub':
+                  !Sub "repo:${GitHubOrg}/${FrontendRepo}:ref:refs/heads/${AllowedBranch}"
+      Policies:
+        - PolicyName: s3-cf-deploy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject, s3:DeleteObject, s3:ListBucket, s3:GetObject]
+                Resource:
+                  - !Sub "arn:aws:s3:::3-tiers-app-frontend-${AWS::AccountId}"
+                  - !Sub "arn:aws:s3:::3-tiers-app-frontend-${AWS::AccountId}/*"
+              - Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: '*'
+              - Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters]
+                Resource: !Sub "arn:aws:ssm:*:${AWS::AccountId}:parameter/3-tiers-app/*"
+
+Outputs:
+  InfraPlanRoleArn:
+    Description: ARN of gha-infra-plan
+    Value: !GetAtt GhaInfraPlanRole.Arn
+  InfraApplyRoleArn:
+    Description: ARN of gha-infra-apply
+    Value: !GetAtt GhaInfraApplyRole.Arn
+  BackendDeployRoleArn:
+    Description: ARN of gha-backend-deploy
+    Value: !GetAtt GhaBackendDeployRole.Arn
+  FrontendDeployRoleArn:
+    Description: ARN of gha-frontend-deploy
+    Value: !GetAtt GhaFrontendDeployRole.Arn

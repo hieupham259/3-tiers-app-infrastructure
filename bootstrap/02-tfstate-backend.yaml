@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Terraform state backend (S3 + KMS) - deployed by CI/CD via bootstrap.yaml.
+  S3 native locking (Terraform >= 1.11) - DynamoDB is NOT used.
+
+Parameters:
+  Project:
+    Type: String
+    Default: 3-tiers-app
+  BucketNamePrefix:
+    Type: String
+    Default: myorg-tfstate
+
+Resources:
+  # --- KMS Key ---
+  TfstateKmsKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub "KMS for Terraform state encryption (${AWS::AccountId})"
+      EnableKeyRotation: true
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableRootPermissions
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root" }
+            Action: 'kms:*'
+            Resource: '*'
+
+  TfstateKmsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/tfstate
+      TargetKeyId: !Ref TfstateKmsKey
+
+  # --- S3 Bucket ---
+  TfstateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "${BucketNamePrefix}-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt TfstateKmsKey.Arn
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-noncurrent-state
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - { Key: Project, Value: !Ref Project }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Component, Value: tfstate-backend }
+        - { Key: Critical, Value: 'true' }
+
+  TfstateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TfstateBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt TfstateBucket.Arn
+              - !Sub "${TfstateBucket.Arn}/*"
+            Condition:
+              Bool: { 'aws:SecureTransport': 'false' }
+          - Sid: DenyUnencryptedUploads
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:PutObject'
+            Resource: !Sub "${TfstateBucket.Arn}/*"
+            Condition:
+              StringNotEquals:
+                's3:x-amz-server-side-encryption': 'aws:kms'
+
+Outputs:
+  BucketName:
+    Description: Terraform state bucket name
+    Value: !Ref TfstateBucket
+    Export: { Name: tfstate-bucket-name }
+
+  BucketArn:
+    Description: Terraform state bucket ARN
+    Value: !GetAtt TfstateBucket.Arn
+    Export: { Name: tfstate-bucket-arn }
+
+  KmsKeyArn:
+    Description: KMS key ARN for state encryption
+    Value: !GetAtt TfstateKmsKey.Arn
+    Export: { Name: tfstate-kms-key-arn }
+
+  KmsKeyAlias:
+    Description: KMS alias for state encryption
+    Value: !Ref TfstateKmsAlias
+    Export: { Name: tfstate-kms-key-alias }

@@ -1,0 +1,74 @@
+name: Bootstrap (CFN - state backend + OIDC roles)
+
+on:
+  workflow_dispatch:
+    inputs:
+      account:
+        description: 'Target AWS account'
+        type: choice
+        required: true
+        options: [development, production]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    environment: bootstrap        # requires manual approval from one reviewer
+    env:
+      AWS_REGION: ap-southeast-1
+      ACCOUNT_ID: ${{ inputs.account == 'production' && '222222222222' || '111111111111' }}
+      ALLOWED_BRANCH: ${{ inputs.account == 'production' && 'production' || 'development' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (assume gha-bootstrap)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/gha-bootstrap
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify caller identity
+        run: aws sts get-caller-identity
+
+      - name: Deploy stack 02-tfstate-backend
+        run: |
+          aws cloudformation deploy \
+            --stack-name tfstate-backend \
+            --template-file bootstrap/02-tfstate-backend.yaml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Read outputs from tfstate-backend
+        id: tfstate
+        run: |
+          BUCKET=$(aws cloudformation describe-stacks --stack-name tfstate-backend \
+            --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' --output text)
+          BUCKET_ARN=$(aws cloudformation describe-stacks --stack-name tfstate-backend \
+            --query 'Stacks[0].Outputs[?OutputKey==`BucketArn`].OutputValue' --output text)
+          KMS_ARN=$(aws cloudformation describe-stacks --stack-name tfstate-backend \
+            --query 'Stacks[0].Outputs[?OutputKey==`KmsKeyArn`].OutputValue' --output text)
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+          echo "bucket_arn=$BUCKET_ARN" >> $GITHUB_OUTPUT
+          echo "kms_arn=$KMS_ARN" >> $GITHUB_OUTPUT
+
+      - name: Deploy stack 03-github-oidc-roles
+        run: |
+          aws cloudformation deploy \
+            --stack-name github-oidc-roles \
+            --template-file bootstrap/03-github-oidc-roles.yaml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              AllowedBranch=${{ env.ALLOWED_BRANCH }} \
+              TfstateBucketName=${{ steps.tfstate.outputs.bucket }} \
+              TfstateBucketArn=${{ steps.tfstate.outputs.bucket_arn }} \
+              TfstateKmsKeyArn=${{ steps.tfstate.outputs.kms_arn }}
+
+      - name: Print role ARNs
+        run: |
+          aws cloudformation describe-stacks --stack-name github-oidc-roles \
+            --query 'Stacks[0].Outputs' --output table

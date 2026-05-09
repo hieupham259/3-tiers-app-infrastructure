@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Trust anchor for the GitHub Actions OIDC bootstrap role.
+  THE ONLY MANUAL STEP - everything else runs through CI/CD.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Default: myorg
+    Description: GitHub organization name
+
+  RepoName:
+    Type: String
+    Default: 3-tiers-app-infrastructure
+    Description: Infrastructure repo name
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+
+  GhaBootstrapRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RoleName: gha-bootstrap
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+              StringLike:
+                'token.actions.githubusercontent.com:sub':
+                  !Sub "repo:${GitHubOrg}/${RepoName}:environment:bootstrap"
+      Tags:
+        - { Key: Project, Value: 3-tiers-app }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Component, Value: trust-anchor }
+        - { Key: Critical, Value: 'true' }
+
+Outputs:
+  OidcProviderArn:
+    Description: ARN of the GitHub Actions OIDC provider
+    Value: !Ref GitHubOidcProvider
+    Export:
+      Name: github-oidc-provider-arn
+
+  BootstrapRoleArn:
+    Description: ARN of the gha-bootstrap role used by bootstrap.yaml workflow
+    Value: !GetAtt GhaBootstrapRole.Arn
+    Export:
+      Name: gha-bootstrap-role-arn

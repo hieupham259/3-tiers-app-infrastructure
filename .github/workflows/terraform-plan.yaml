@@ -1,0 +1,78 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [development, production]
+    paths:
+      - 'envs/**'
+      - 'modules/**'
+      - 'scripts/**'
+      - '.github/workflows/terraform-plan.yaml'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  sync-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify envs/development and envs/production are in sync
+        run: bash scripts/verify-envs-in-sync.sh
+
+  plan:
+    needs: sync-check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { env: development, account_id: '111111111111' }
+          - { env: production, account_id: '222222222222' }
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: envs/${{ matrix.env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.3
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ matrix.account_id }}:role/gha-infra-plan
+          aws-region: ap-southeast-1
+
+      - name: Terraform fmt -check
+        working-directory: .
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init
+        run: terraform init -no-color
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -no-color -out=tfplan -input=false
+        continue-on-error: true
+
+      - name: Comment plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `### Terraform Plan - \`${{ matrix.env }}\` ${{ steps.plan.outcome == 'success' && 'OK' || 'FAILED' }}\n\n<details><summary>Plan output</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n\n</details>`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Fail step if plan errored
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
