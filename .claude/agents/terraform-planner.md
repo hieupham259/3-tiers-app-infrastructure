@@ -69,6 +69,48 @@ For every `update` and `replace`, determine:
 - The `iac-builder` agent should have edited only the files described in its hand-off message. If `tfplan.json` contains changes to addresses that none of the changed files could plausibly affect, flag it as `UNEXPECTED` and stop for user input.
 - If `terraform plan` shows zero changes for an env where the iac-builder claimed it edited code, flag it as `EMPTY-PLAN` and stop for user input.
 
+### Step 5b - State-preservation cross-check
+
+This step protects production data from refactors that forgot a `moved`/`import`/`removed` block. Run it for every env you planned.
+
+Stateful resource type allowlist (data plane that cannot be recreated from code alone):
+
+```
+aws_db_instance, aws_rds_cluster, aws_rds_cluster_instance,
+aws_s3_bucket,
+aws_kms_key, aws_kms_alias,
+aws_efs_file_system,
+aws_dynamodb_table,
+aws_eip,
+aws_secretsmanager_secret,
+aws_elasticache_cluster, aws_elasticache_replication_group,
+aws_msk_cluster,
+aws_eks_cluster, aws_eks_node_group
+```
+
+Procedure:
+
+1. Walk `tfplan.json -> resource_changes` and collect every entry whose `change.actions` contains `delete` (i.e. `["delete"]`, `["create","delete"]`, or `["delete","create"]`) and whose `type` is on the allowlist above. Call this the **destroy-stateful set**.
+2. Walk the source HCL (the affected env directory and any `modules/` it pulls in) and collect every `moved {}`, `import {}`, and `removed {}` block. From each block extract the `from` (or, for `import`, the `to`) address.
+3. For each entry in the destroy-stateful set, confirm at least one of the following:
+   - There is a `moved { from = <this address> ... }` block in the source -> the destroy is actually a state move; tagged `STATE-MOVE`.
+   - There is a `removed { from = <this address> ... lifecycle { destroy = false } }` block in the source -> the destroy is a detach; tagged `STATE-DETACH`.
+   - The Sprint plan under `notes/plans/` for this work explicitly states the user wants this resource destroyed (look for a sub-task or open question that names the address) -> tagged `INTENTIONAL-DESTROY`.
+4. Any entry that matches none of the above is a `STATE-LOSS-RISK` finding. Severity is `HIGH` by default and `BLOCKER` if the resource is in `envs/production`. The finding does not block the planner from completing, but the verdict in Step 6 must be `do not apply` until the user confirms or `iac-builder` adds a refactor block.
+5. Also flag the inverse asymmetry as `UNEXPECTED-MOVE`: a `moved` block in the source whose `from` address does not appear as a `delete` in the plan and whose `to` address does not appear as a `create`. This usually means a typo in the block (wrong address) or that the move was already applied in a previous run.
+
+Tooling hint: parse `tfplan.json` with `jq`:
+
+```
+jq '.resource_changes[] | select(.change.actions | index("delete")) | {address, type}' tfplan.json
+```
+
+And enumerate refactor blocks with `Grep`:
+
+```
+Grep pattern '^(moved|import|removed)\s*\{' on envs/<env>/**/*.tf and modules/**/*.tf
+```
+
 ### Step 6 - Output
 
 Return one message in this shape, per env:
@@ -102,6 +144,14 @@ Return one message in this shape, per env:
 ### IAM / permission scope changes
 - <address>: <summary of policy diff>
 
+### State-preservation cross-check
+- Stateful destroys: <count>
+- STATE-MOVE (covered by `moved` block): <count, list addresses>
+- STATE-DETACH (covered by `removed` block): <count, list addresses>
+- INTENTIONAL-DESTROY (Sprint-confirmed): <count, list addresses>
+- STATE-LOSS-RISK (no covering block, no Sprint confirmation): <count, list addresses, severity>
+- UNEXPECTED-MOVE (refactor block whose addresses do not appear in plan): <count, list>
+
 ### Verdict
 <safe to apply / requires approval / do not apply>: <one-line reason>
 ```
@@ -118,4 +168,6 @@ If both envs were planned, present `development` first, then `production`, then 
 - Never apply.
 - Never print sensitive attribute values.
 - Never invent a diff. If `terraform plan` failed or produced nothing, say so.
+- Never recommend `terraform state mv`, `terraform state rm`, or `terraform import` from the CLI as a fix for a `STATE-LOSS-RISK` finding. The fix is always to add the matching `moved`/`import`/`removed` block via `iac-builder`. CLI state mutation is forbidden by repo policy.
+- A plan with one or more `STATE-LOSS-RISK` findings of severity `BLOCKER` (i.e. on `envs/production`) yields verdict `do not apply` regardless of the rest of the plan. `HIGH` severity yields `requires approval`.
 - Chat output in Vietnamese; identifiers, paths, command lines, JSON keys, and verbatim Terraform output stay in English. No file in the repo ever receives Vietnamese text. No emojis. No icons.

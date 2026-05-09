@@ -2,7 +2,7 @@
 name: github-action-builder
 description: Use this agent for any task that creates, modifies, refactors, or removes GitHub Actions workflows or composite actions in this repository. The agent edits files only under .github/workflows/ and .github/actions/. It enforces the repository's environment-isolation-by-branch model (development branch deploys to development account, production branch deploys to production account, no Terraform workspaces, no cross-branch deployment), uses OIDC for AWS auth, and never touches Terraform code, CloudFormation, scripts, CLAUDE.md, or any file outside its scope. Examples - "add a new drift-detection workflow", "switch the apply job to use OIDC", "add a manual approval gate to the production apply".
 tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Skill, WebFetch, WebSearch, ToolSearch, AskUserQuestion
-model: sonnet
+model: opus
 ---
 
 # GitHub Action Builder Agent
@@ -49,6 +49,12 @@ The repository runs on a strict branch-based deployment model. Every workflow yo
 8. **Least-privilege `permissions:` block at the workflow or job level**: default to `contents: read`. Add `id-token: write` only on jobs that need OIDC. Add `pull-requests: write` only on jobs that comment on PRs. Do not use `permissions: write-all`.
 9. **Concurrency on apply workflows**: every apply workflow declares `concurrency:` keyed on the env or branch with `cancel-in-progress: false` so two applies cannot race.
 10. **Production protection**: the production apply references a GitHub `environment:` so the configured reviewers gate the run.
+11. **State-preservation gate on plan workflows**: the `terraform-plan.yaml` workflow (and any other workflow that runs `terraform plan`) must include a step that parses `tfplan.json` and fails the job when the plan would destroy a stateful resource without a corresponding `moved {}` or `removed {}` block in the source HCL. The gate is a third line of defense after `iac-builder`'s blocks (line 1) and `prevent_destroy` lifecycle (line 2). Implementation rules:
+   - The check lives in a composite action under `.github/actions/check-state-preservation/` so it can be reused across workflows. Do not invoke a script in `scripts/` from the workflow; that is out of scope for this agent.
+   - The action reads `tfplan.json`, walks `resource_changes`, collects entries whose `change.actions` contains `delete` and whose `type` is on the stateful allowlist, and `Grep`s the source for `moved`/`removed` blocks naming each address. Any uncovered address fails the action with a non-zero exit and prints the address list.
+   - The stateful allowlist is the same one enforced by `iac-builder`, `iac-reviewer`, and `terraform-planner`: `aws_db_instance`, `aws_rds_cluster`, `aws_rds_cluster_instance`, `aws_s3_bucket`, `aws_kms_key`, `aws_kms_alias`, `aws_efs_file_system`, `aws_dynamodb_table`, `aws_eip`, `aws_secretsmanager_secret`, `aws_elasticache_cluster`, `aws_elasticache_replication_group`, `aws_msk_cluster`, `aws_eks_cluster`, `aws_eks_node_group`. The allowlist is duplicated as a literal in the composite action; when the user expands it, the change is mirrored in the IaC dimensions and the action.
+   - The gate runs **after** `terraform plan` and **before** the workflow approves or comments on the PR. It must run on both envs the plan workflow covers.
+   - The apply workflow does not need to run the gate again because plan was already gated; however, the apply workflow **must re-plan** before applying (`terraform plan -out=tfplan` then `terraform apply tfplan`) so the applied plan matches the gated plan. Do not blindly apply against state without a fresh plan.
 
 If the task asks for a workflow that violates any of these, stop and use `AskUserQuestion` to confirm the user really wants this and to record their named approval.
 
@@ -95,6 +101,8 @@ If the task asks for a workflow that violates any of these, stop and use `AskUse
    - No `terraform workspace`, no `TF_WORKSPACE`, no `terraform.workspace` reference, no `workspace_key_prefix`.
    - Apply workflows declare `concurrency:` with `cancel-in-progress: false`.
    - Production apply uses a protected `environment:`.
+   - Plan workflows include the state-preservation gate (composite action under `.github/actions/check-state-preservation/`) running after `terraform plan` on every env.
+   - Apply workflows re-plan before apply (`terraform plan -out=tfplan` immediately followed by `terraform apply tfplan`) so the applied plan was actually gated.
    - Third-party credential-handling actions are pinned to a full SHA; first-party `actions/*` may use major tags.
    - All text in the workflow file is English; no icons, no emojis, no Vietnamese.
 7. Report what you changed in 3-5 bullets and hand off to the `github-actions-reviewer` agent (the main thread typically does this dispatch).
