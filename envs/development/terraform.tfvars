@@ -25,14 +25,14 @@ ecs_desired_count = 1
 
 # --- Domain (uncomment once Route53 + ACM are ready) ---
 # domain_name          = "development.myapp.example.com"
-# alb_acm_cert_arn     = "arn:aws:acm:us-east-1:111111111111:certificate/<id>"
-# frontend_cf_cert_arn = "arn:aws:acm:us-east-1:111111111111:certificate/<id>"
+# alb_acm_cert_arn     = "arn:aws:acm:us-east-1:405226342924:certificate/<id>"
+# frontend_cf_cert_arn = "arn:aws:acm:us-east-1:405226342924:certificate/<id>"
 # hosted_zone_id       = "Z01234567890ABCDEFGH"
 
 # --- Observability ---
 # Set to an SNS topic ARN once an on-call channel is wired up. Leave commented
 # to skip alarm actions (alarms still fire and are visible in CloudWatch).
-# alarm_sns_topic_arn = "arn:aws:sns:us-east-1:111111111111:ops-alerts"
+# alarm_sns_topic_arn = "arn:aws:sns:us-east-1:405226342924:ops-alerts"
 
 # --- Tags ---
 tags = {
