@@ -25,6 +25,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify variables
+        run: |
+          echo "AWS_REGION: $AWS_REGION"
+          echo "ACCOUNT_ID: $ACCOUNT_ID"
+          echo "ALLOWED_BRANCH: $ALLOWED_BRANCH"
+
       - name: Configure AWS credentials (assume gha-bootstrap)
         uses: aws-actions/configure-aws-credentials@v4
         with:
