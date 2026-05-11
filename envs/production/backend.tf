@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 1.11"
 
   backend "s3" {
-    bucket       = "myorg-tfstate-222222222222"
+    bucket       = "3-tiers-app-infrastructure-tfstate-405226342924"
     key          = "3-tiers-app/production/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true

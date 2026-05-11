@@ -9,7 +9,7 @@ Parameters:
     Default: 3-tiers-app
   BucketNamePrefix:
     Type: String
-    Default: myorg-tfstate
+    Description: Prefix for the tfstate S3 bucket name; final bucket is <prefix>-<AccountId>. Typically <repo-name>-tfstate, passed from the GitHub workflow.
 
 Resources:
   # --- KMS Key ---

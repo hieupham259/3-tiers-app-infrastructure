@@ -15,7 +15,7 @@ Create a dedicated `backend.tf` for this folder once you decide which account ho
 ```hcl
 terraform {
   backend "s3" {
-    bucket       = "myorg-tfstate-111111111111"
+    bucket       = "3-tiers-app-infrastructure-tfstate-111111111111"
     key          = "3-tiers-app/global/route53/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true

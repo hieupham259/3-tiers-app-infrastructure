@@ -31,6 +31,7 @@ jobs:
           echo "ACCOUNT_ID: $ACCOUNT_ID"
           echo "ALLOWED_BRANCH: $ALLOWED_BRANCH"
           echo "GITHUB_ORG: ${{ github.repository_owner }}"
+          echo "BUCKET_NAME_PREFIX: ${{ github.event.repository.name }}-tfstate"
 
       - name: Configure AWS credentials (assume gha-bootstrap)
         uses: aws-actions/configure-aws-credentials@v4
@@ -47,7 +48,9 @@ jobs:
             --stack-name tfstate-backend \
             --template-file bootstrap/02-tfstate-backend.yaml \
             --capabilities CAPABILITY_NAMED_IAM \
-            --no-fail-on-empty-changeset
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              BucketNamePrefix=${{ github.event.repository.name }}-tfstate
 
       - name: Read outputs from tfstate-backend
         id: tfstate
