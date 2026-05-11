@@ -6,8 +6,7 @@ Description: |
 Parameters:
   GitHubOrg:
     Type: String
-    Default: myorg
-    Description: GitHub organization name
+    Description: GitHub organization (or user) name that owns the infrastructure repo
 
   RepoName:
     Type: String

@@ -30,16 +30,13 @@ jobs:
 
   plan:
     needs: sync-check
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { env: development, account_id: '${{ vars.DEV_ACCOUNT_ID }}' }
-          - { env: production, account_id: '${{ vars.PROD_ACCOUNT_ID }}' }
     runs-on: ubuntu-latest
+    env:
+      ENV_DIR: ${{ github.base_ref == 'production' && 'production' || 'development' }}
+      ACCOUNT_ID: ${{ github.base_ref == 'production' && vars.PROD_ACCOUNT_ID || vars.DEV_ACCOUNT_ID }}
     defaults:
       run:
-        working-directory: envs/${{ matrix.env }}
+        working-directory: envs/${{ env.ENV_DIR }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,7 +46,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ matrix.account_id }}:role/gha-infra-plan
+          role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/gha-infra-plan
           aws-region: us-east-1
 
       - name: Terraform fmt -check
@@ -77,7 +74,7 @@ jobs:
         if: steps.plan.outcome == 'success'
         uses: ./.github/actions/check-state-preservation
         with:
-          plan-json-path: envs/${{ matrix.env }}/tfplan.json
+          plan-json-path: envs/${{ env.ENV_DIR }}/tfplan.json
           commit-message: ${{ github.event.pull_request.title }}
           pr-labels: ${{ toJson(github.event.pull_request.labels.*.name) }}
 
@@ -85,7 +82,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const output = `### Terraform Plan - \`${{ matrix.env }}\` ${{ steps.plan.outcome == 'success' && 'OK' || 'FAILED' }}\n\n<details><summary>Plan output</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n\n</details>`;
+            const output = `### Terraform Plan - \`${{ env.ENV_DIR }}\` ${{ steps.plan.outcome == 'success' && 'OK' || 'FAILED' }}\n\n<details><summary>Plan output</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n\n</details>`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

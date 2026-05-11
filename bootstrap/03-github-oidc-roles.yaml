@@ -7,7 +7,7 @@ Description: |
 Parameters:
   GitHubOrg:
     Type: String
-    Default: myorg
+    Description: GitHub organization (or user) name that owns the infrastructure / backend / frontend repos
   InfraRepo:
     Type: String
     Default: 3-tiers-app-infrastructure

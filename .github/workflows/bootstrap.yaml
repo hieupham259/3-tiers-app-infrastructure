@@ -30,6 +30,7 @@ jobs:
           echo "AWS_REGION: $AWS_REGION"
           echo "ACCOUNT_ID: $ACCOUNT_ID"
           echo "ALLOWED_BRANCH: $ALLOWED_BRANCH"
+          echo "GITHUB_ORG: ${{ github.repository_owner }}"
 
       - name: Configure AWS credentials (assume gha-bootstrap)
         uses: aws-actions/configure-aws-credentials@v4
@@ -69,6 +70,7 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset \
             --parameter-overrides \
+              GitHubOrg=${{ github.repository_owner }} \
               AllowedBranch=${{ env.ALLOWED_BRANCH }} \
               TfstateBucketName=${{ steps.tfstate.outputs.bucket }} \
               TfstateBucketArn=${{ steps.tfstate.outputs.bucket_arn }} \
