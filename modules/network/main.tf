@@ -43,6 +43,10 @@ resource "aws_eip" "nat" {
   count  = local.create_vpc ? var.az_count : 0
   domain = "vpc"
   tags   = merge(var.tags, { Name = "${var.environment}-nat-eip-${count.index}" })
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_nat_gateway" "this" {
