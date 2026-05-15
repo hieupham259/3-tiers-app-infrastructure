@@ -129,6 +129,38 @@ Before declaring a task done, the relevant agent must confirm:
 - `terraform-planner` ran cleanly and the plan matches the iac-builder's intent.
 - For any workflow change, `github-actions-reviewer` ran `act` locally and the log is attached.
 
+## Git operations - mandatory user gate
+
+The main thread and every agent are forbidden from running any git operation that writes to the user's repository or remote without an explicit, in-turn user instruction for that specific operation.
+
+Forbidden without explicit user permission:
+
+- `git commit` (in any form: `commit`, `commit --amend`, `commit -a`, etc.).
+- `git push` (in any form: `push`, `push -u`, `push --force`, `push --tags`, etc.).
+- `git merge`, `git rebase`, `git cherry-pick`, `git revert` that produce new commits.
+- `git tag` that creates or pushes a tag.
+- `git reset --hard`, `git restore --staged`, or any destructive index/working-tree operation.
+- `gh pr create`, `gh pr merge`, `gh pr close`, `gh release create`, or any `gh` subcommand that writes to GitHub (issues, PRs, releases, comments, reviews).
+- Any other command that writes to the local git history, the working tree in a destructive way, or the remote.
+
+Explicitly allowed (read-only or local-only, safe to run autonomously when needed for a task):
+
+- `git status`, `git log`, `git diff`, `git show`, `git branch` (list only), `git remote -v`, `git rev-parse`, `git fetch` (read-only sync).
+- `git add` and `git restore` against the working tree (staging only, no history change). Staging is OK because the next step (`git commit`) is still gated.
+- `git checkout <branch>` and `git checkout -b <branch>` locally - branch switching only, no remote write. Pushing the new branch still needs user permission.
+- Reading `gh` data (`gh pr view`, `gh pr list`, `gh run view`, `gh api` GET, etc.).
+
+Workflow when changes need to land on a branch or be pushed:
+
+1. The main thread (or an agent) edits the files in the working tree.
+2. The main thread reports the diff to the user and stops.
+3. The user runs `git commit` and `git push` themselves, or explicitly instructs the main thread to do so in the current turn ("commit and push", "push this up", "open a PR for this").
+4. Permission is scoped to the operation and the turn. "Commit this" does not authorize a future commit; the next commit requires its own permission.
+
+Rationale: commits and pushes mutate the user's authoritative history and trigger downstream automation (GitHub Actions workflows, deploy pipelines, branch protection checks). The user is the gatekeeper for what enters that history and when.
+
+This rule overrides any inferred convenience. Even if a task feels "obviously complete" or the user has previously approved similar commits, do not commit or push without a fresh instruction in the current turn.
+
 ## Out-of-scope safety
 
 - No `terraform apply` from the main thread or any agent. Apply only happens through the GitHub Actions pipeline.
