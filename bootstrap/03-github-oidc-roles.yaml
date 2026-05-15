@@ -91,7 +91,7 @@ Resources:
                 'token.actions.githubusercontent.com:sub':
                   !Sub "repo:${GitHubOrg}/${InfraRepo}:*"
 
-  # --- Backend deploy role (push ECR + ECS update) ---
+  # --- Backend deploy role (push ECR + ECS update, any workflow context from backend repo) ---
   GhaBackendDeployRole:
     Type: AWS::IAM::Role
     DeletionPolicy: Retain
@@ -108,8 +108,9 @@ Resources:
             Condition:
               StringEquals:
                 'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+              StringLike:
                 'token.actions.githubusercontent.com:sub':
-                  !Sub "repo:${GitHubOrg}/${BackendRepo}:ref:refs/heads/${AllowedBranch}"
+                  !Sub "repo:${GitHubOrg}/${BackendRepo}:*"
       Policies:
         - PolicyName: ecr-ecs-deploy
           PolicyDocument:
@@ -149,7 +150,7 @@ Resources:
                   StringEquals:
                     'iam:PassedToService': ecs-tasks.amazonaws.com
 
-  # --- Frontend deploy role (S3 sync + CF invalidate) ---
+  # --- Frontend deploy role (S3 sync + CF invalidate, any workflow context from frontend repo) ---
   GhaFrontendDeployRole:
     Type: AWS::IAM::Role
     DeletionPolicy: Retain
@@ -166,8 +167,9 @@ Resources:
             Condition:
               StringEquals:
                 'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+              StringLike:
                 'token.actions.githubusercontent.com:sub':
-                  !Sub "repo:${GitHubOrg}/${FrontendRepo}:ref:refs/heads/${AllowedBranch}"
+                  !Sub "repo:${GitHubOrg}/${FrontendRepo}:*"
       Policies:
         - PolicyName: s3-cf-deploy
           PolicyDocument:
