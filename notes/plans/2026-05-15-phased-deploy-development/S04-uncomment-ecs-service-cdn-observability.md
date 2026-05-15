@@ -1,5 +1,23 @@
 # Sprint S04 - Un-comment: module ecs_service, frontend_cdn, observability (stack day du)
 
+## CAP NHAT 2026-05-15: anh huong tu refactor cost-optimization o S01
+
+Sau refactor cost-opt (xem README.md cua plan + S01), kien truc ECS Fargate da thay doi:
+- ECS task chay trong **public subnet** (truoc kia private subnet) voi `assign_public_ip = true`.
+- Khong dung NAT Gateway nua - task pull image ECR + doc Secrets Manager qua IGW.
+- Security group cua ECS task chi cho phep inbound tu ALB SG → van an toan du co public IP.
+
+Trong block `module "ecs_service"` o `envs/_shared/main.tf` (dang comment), iac-builder da cap nhat truoc 2 dong sau de S04 un-comment ra dung kien truc moi:
+- `subnet_ids = module.network.public_subnet_ids` (truoc kia: `private_subnet_ids = module.network.private_subnet_ids`).
+- `assign_public_ip = true` (dong moi them).
+
+Module `modules/ecs-service/`:
+- `variables.tf`: rename `private_subnet_ids` → `subnet_ids`; them var `assign_public_ip` (default false).
+- `main.tf`: `network_configuration` dung `var.subnet_ids` va `var.assign_public_ip`.
+- `README.md`: cap nhat vi du usage.
+
+S04 KHONG can sua gi them ve subnet binding cua ECS - chi cap nhat khi un-comment block.
+
 ## Goal
 
 Sau Sprint nay, `envs/_shared/main.tf` tra ve trang thai day du voi tat ca 9 module. `envs/_shared/outputs.tf` phuc hoi toan bo. Dong thoi phuc hoi cac gia tri tam thoi da thay doi o S03: `ingress_security_group_ids` cua `module "rds"` tra ve `[module.ecs_service.security_group_id]`, `frontend_bucket_arn` cua `module "iam_app_roles"` tra ve `module.frontend_cdn.bucket_arn`. Deploy len `development` thanh cong. Day la giai doan cuoi - sau Sprint nay, stack day du.
@@ -123,4 +141,4 @@ Cac reviewer tick box khi verify xong.
 
 ## Last updated
 
-2026-05-15 by main thread - doi "phased rollout" thanh "phased deploy"; doi ten feature branch; them buoc replicate sang production
+2026-05-15 by main thread - them section "CAP NHAT: anh huong tu refactor cost-optimization": ECS Fargate chuyen sang public subnet voi assign_public_ip=true, module ecs-service rename bien private_subnet_ids → subnet_ids

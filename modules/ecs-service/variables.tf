@@ -19,9 +19,15 @@ variable "vpc_id" {
   description = "VPC ID"
 }
 
-variable "private_subnet_ids" {
+variable "subnet_ids" {
   type        = list(string)
-  description = "Private subnets for task ENIs"
+  description = "Subnets the task ENIs are placed in. In the cost-optimized topology these are public subnets paired with assign_public_ip = true so tasks can reach ECR / Secrets Manager without a NAT Gateway."
+}
+
+variable "assign_public_ip" {
+  type        = bool
+  default     = false
+  description = "Whether to assign a public IP to the task ENI. Set true when subnet_ids are public subnets and no NAT Gateway is present."
 }
 
 variable "alb_target_group_arn" {

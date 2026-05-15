@@ -11,8 +11,8 @@ variable "vpc_cidr" {
 
 variable "az_count" {
   type        = number
-  default     = 1
-  description = "Number of availability zones (default 1)"
+  default     = 2
+  description = "Number of AZs the VPC spans. Default 2 to satisfy ALB and RDS DB Subnet Group requirements."
 }
 
 # --- BYO (Bring Your Own) - accept pre-existing VPC/subnets ---
