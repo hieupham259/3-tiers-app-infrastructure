@@ -68,7 +68,7 @@ Resources:
                 Action: [kms:Encrypt, kms:Decrypt, kms:GenerateDataKey, kms:DescribeKey]
                 Resource: !Ref TfstateKmsKeyArn
 
-  # --- Apply role: Admin + tfstate (only the matching branch) ---
+  # --- Apply role: Admin + tfstate (any workflow context from the infra repo) ---
   GhaInfraApplyRole:
     Type: AWS::IAM::Role
     DeletionPolicy: Retain
@@ -87,8 +87,9 @@ Resources:
             Condition:
               StringEquals:
                 'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+              StringLike:
                 'token.actions.githubusercontent.com:sub':
-                  !Sub "repo:${GitHubOrg}/${InfraRepo}:ref:refs/heads/${AllowedBranch}"
+                  !Sub "repo:${GitHubOrg}/${InfraRepo}:*"
 
   # --- Backend deploy role (push ECR + ECS update) ---
   GhaBackendDeployRole:
