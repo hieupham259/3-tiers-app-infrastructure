@@ -8,7 +8,41 @@ Nguoi dung muon deploy ha tang theo tung module mot (phased deploy) cho moi truo
 
 Sau khi moi giai doan chay tot tren `development`, nguoi dung se merge cung thay doi do sang `production` (tung module hoac vai module mot lan).
 
-Module `modules/network/` duoc giu nguyen hoan toan - khong comment, khong sua gi ben trong. Sprint 1 deploy full networking (VPC + subnet + IGW + NAT + EIP + route table + route table association). Chi comment/uncomment cac module call trong `envs/_shared/main.tf` va cac block tuong ung trong `envs/_shared/outputs.tf`.
+Sprint 1 deploy full networking module (cost-optimized topology). Chi comment/uncomment cac module call trong `envs/_shared/main.tf` va cac block tuong ung trong `envs/_shared/outputs.tf`.
+
+## Quyet dinh kien truc cost-optimization (2026-05-15)
+
+Trong qua trinh thuc hien S01, user yeu cau refactor de toi uu chi phi truoc khi deploy lan dau. Tom tat kien truc mang moi:
+
+- **VPC 2 AZ** (us-east-1a + us-east-1b) - thoa man ALB (>=2 AZ) va RDS DB Subnet Group (>=2 AZ).
+- **2 public subnet** (1 moi AZ, /20) - phuc vu ALB + ECS Fargate task.
+- **2 private subnet** (1 moi AZ, /20) - chi phuc vu RDS (de thoa man Subnet Group, khong co outbound internet).
+- **KHONG CO NAT Gateway, KHONG CO Elastic IP** - tiet kiem ~$32/thang (NAT Gateway: ~$32/cai/thang).
+- **1 public route table** (shared cho 2 public subnet) → IGW.
+- **1 private route table** (shared cho 2 private subnet) - chi co local route, khong co 0.0.0.0/0.
+- **ECS Fargate** chay trong public subnet voi `assign_public_ip = true` de pull image ECR + Secrets Manager qua IGW thay vi NAT. Security group ECS chi cho phep inbound tu ALB SG → van an toan du co public IP.
+
+Tong: **12 resource networking** (1 VPC + 2 public subnet + 2 private subnet + 1 IGW + 1 public RT + 1 private RT + 4 RTA).
+
+### File da sua trong refactor nay
+
+- `modules/network/variables.tf` - `az_count` default 1 → 2.
+- `modules/network/main.tf` - xoa `aws_eip.nat` va `aws_nat_gateway.this`; `aws_route_table.private` thanh shared (count=1) khong co route NAT; `aws_route_table_association.private` map ve RT[0].
+- `modules/network/README.md` - cap nhat mo ta (2 AZs, no NAT/EIP).
+- `modules/ecs-service/variables.tf` - rename `private_subnet_ids` → `subnet_ids`; them var `assign_public_ip` (default false).
+- `modules/ecs-service/main.tf` - dung `var.subnet_ids` va `var.assign_public_ip` trong network_configuration.
+- `modules/ecs-service/README.md` - cap nhat vi du usage.
+- `envs/_shared/main.tf` - sua noi dung block `module "ecs_service"` van con comment: `subnet_ids = module.network.public_subnet_ids` + `assign_public_ip = true`. Khi un-comment o S04 se dung kien truc moi.
+
+### Anh huong toi cac Sprint
+
+- **S01**: resource mong doi tu 21 (kien truc cu 3 AZ + 3 NAT/EIP) → **12** (kien truc moi 2 AZ + 0 NAT/EIP). Sub-task S01-T01 (them lifecycle prevent_destroy cho aws_eip.nat) khong con relevant vi aws_eip da bi xoa khoi module.
+- **S03**: RDS DB Subnet Group rang buoc >=2 subnet o >=2 AZ → da duoc thoa man boi 2 private subnet o 2 AZ trong kien truc moi.
+- **S04**: ECS service un-comment se dung public subnet + assign_public_ip=true thay vi private subnet.
+
+### Open question
+
+Code `envs/_shared/` dung chung cho ca `production`. Khi merge sang production, production cung mat NAT. Neu sau nay production can NAT (HA + tach traffic), can them variable gate (vi du `enable_nat_gateway` o module network) de production override. Hien tai user chap nhan, ghi nhan de revisit.
 
 ## Cap nhat
 
@@ -42,7 +76,6 @@ S01 -> S02 -> S03 -> S04. Moi Sprint mo khoa giai doan truoc khi bat dau giai do
 
 ## Out-of-scope
 
-- Thay doi ben trong `modules/network/` - module nay duoc giu nguyen hoan toan trong suot qua trinh.
 - Thay doi `envs/development/` va `envs/production/` ngoai viec deploy.
 - Thay doi cac workflow `.github/workflows/`.
 - Luat "byte-identical" cua `scripts/verify-envs-in-sync.sh` khong bi vi pham vi script chi kiem tra `envs/development/main.tf` va `envs/development/variables.tf` - khong kiem tra `envs/_shared/`.
@@ -59,4 +92,4 @@ Luong lam viec:
 
 ## Last updated
 
-2026-05-15 by main thread - doi ten thu muc tu phased-rollout sang phased-deploy; lam ro day la deploy lan dau (khong phai rollout); cap nhat huong dan deploy sang production cho dung y dinh nguoi dung
+2026-05-15 by main thread - them section "Quyet dinh kien truc cost-optimization": bo NAT/EIP, 2 AZ public + 2 AZ private, ECS Fargate trong public subnet voi assign_public_ip=true; cap nhat anh huong toi S01/S03/S04; ghi nhan open question ve production NAT gating

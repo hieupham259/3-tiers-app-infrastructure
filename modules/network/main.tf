@@ -7,7 +7,7 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-# --- Create mode: VPC + subnets + NAT ---
+# --- Create mode: VPC + subnets + IGW (no NAT, no EIP) ---
 resource "aws_vpc" "this" {
   count                = local.create_vpc ? 1 : 0
   cidr_block           = var.vpc_cidr
@@ -39,25 +39,6 @@ resource "aws_internet_gateway" "this" {
   tags   = merge(var.tags, { Name = "${var.environment}-igw" })
 }
 
-resource "aws_eip" "nat" {
-  count  = local.create_vpc ? var.az_count : 0
-  domain = "vpc"
-  tags   = merge(var.tags, { Name = "${var.environment}-nat-eip-${count.index}" })
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "aws_nat_gateway" "this" {
-  count         = local.create_vpc ? var.az_count : 0
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
-  tags          = merge(var.tags, { Name = "${var.environment}-nat-${local.azs[count.index]}" })
-
-  depends_on = [aws_internet_gateway.this]
-}
-
 resource "aws_route_table" "public" {
   count  = local.create_vpc ? 1 : 0
   vpc_id = aws_vpc.this[0].id
@@ -68,14 +49,13 @@ resource "aws_route_table" "public" {
   tags = merge(var.tags, { Name = "${var.environment}-rt-public" })
 }
 
+# Single shared private route table with only the implicit local route.
+# No NAT Gateway and no 0.0.0.0/0 route - private subnets host RDS only and
+# do not need outbound internet access in this cost-optimized topology.
 resource "aws_route_table" "private" {
-  count  = local.create_vpc ? var.az_count : 0
+  count  = local.create_vpc ? 1 : 0
   vpc_id = aws_vpc.this[0].id
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.this[count.index].id
-  }
-  tags = merge(var.tags, { Name = "${var.environment}-rt-private-${local.azs[count.index]}" })
+  tags   = merge(var.tags, { Name = "${var.environment}-rt-private" })
 }
 
 resource "aws_route_table_association" "public" {
@@ -87,7 +67,7 @@ resource "aws_route_table_association" "public" {
 resource "aws_route_table_association" "private" {
   count          = local.create_vpc ? var.az_count : 0
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
+  route_table_id = aws_route_table.private[0].id
 }
 
 # --- BYO mode: lookup existing VPC ---

@@ -1,5 +1,15 @@
 # Sprint S03 - Un-comment: module rds, iam_app_roles
 
+## CAP NHAT 2026-05-15: anh huong tu refactor cost-optimization o S01
+
+Kien truc network sau refactor cost-opt (xem README.md cua plan + S01) cung cap:
+- **2 private subnet** o **2 AZ** khac nhau (us-east-1a + us-east-1b).
+- Private subnet KHONG co route 0.0.0.0/0 (no NAT) - phu hop cho RDS (RDS khong can outbound internet).
+
+→ Rang buoc **DB Subnet Group >= 2 subnet o >= 2 AZ** cua AWS RDS **da duoc thoa man** boi module network. Khong can chinh gi them o module rds ve mat subnet.
+
+`module.rds` van dung `subnet_ids = module.network.private_subnet_ids` nhu hien tai - module.network.private_subnet_ids gio la list 2 phan tu (2 AZ), du de tao DB Subnet Group.
+
 ## Goal
 
 Sau Sprint nay, `envs/_shared/main.tf` un-comment them 2 module: `module "rds"` va `module "iam_app_roles"`. Day la 2 module stateful/IAM can deploy truoc `ecs_service` vi `ecs_service` can `rds.secret_arn`, `rds.endpoint`, `iam_app_roles.task_exec_role_arn`, `iam_app_roles.task_role_arn`. `envs/_shared/outputs.tf` un-comment them `output "rds_endpoint"`. Deploy len `development` thanh cong.
@@ -127,4 +137,4 @@ Cac reviewer tick box khi verify xong.
 
 ## Last updated
 
-2026-05-15 by main thread - doi marker PHASED-ROLLOUT thanh PHASED-DEPLOY; doi ten feature branch; them buoc replicate sang production
+2026-05-15 by main thread - them section "CAP NHAT: anh huong tu refactor cost-optimization": xac nhan DB Subnet Group rang buoc da duoc thoa man boi 2 private subnet o 2 AZ tu module network

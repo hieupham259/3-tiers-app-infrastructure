@@ -18,7 +18,8 @@ module "ecs_service" {
   environment           = var.environment
   cluster_name          = module.ecs_cluster.cluster_name
   vpc_id                = module.network.vpc_id
-  private_subnet_ids    = module.network.private_subnet_ids
+  subnet_ids            = module.network.public_subnet_ids
+  assign_public_ip      = true
   alb_target_group_arn  = module.alb.target_group_arn
   alb_security_group_id = module.alb.security_group_id
   ecr_repository_url    = module.ecr_backend.repository_url
