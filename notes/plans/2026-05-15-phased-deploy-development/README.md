@@ -61,8 +61,8 @@ Apply KHONG chay tu local. Theo CLAUDE.md, apply chi xay ra qua GitHub Actions p
 
 | ID | Title | Status | Owner of last update |
 |----|-------|--------|----------------------|
-| S01 | deploy-full-networking | planned | task-planner |
-| S02 | uncomment-ecr-alb-ecs-cluster | planned | task-planner |
+| S01 | deploy-full-networking | done (merged to development 2026-05-16) | main thread |
+| S02 | uncomment-ecr-alb-ecs-cluster (split: S02a ECR / S02b ALB / S02c ECS cluster) | S02a in-progress (S02a-T01 done, S02a-T02..T04 pending) | main thread |
 | S03 | uncomment-rds-iam | planned | task-planner |
 | S04 | uncomment-ecs-service-cdn-observability | planned | task-planner |
 

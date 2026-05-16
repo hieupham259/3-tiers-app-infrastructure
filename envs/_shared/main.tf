@@ -17,15 +17,13 @@ module "network" {
   tags                        = local.common_tags
 }
 
-# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04
-# module "ecr_backend" {
-#   source      = "../../modules/ecr"
-#   environment = var.environment
-#   repo_name   = "3-tiers-app-backend"
-#   tags        = local.common_tags
-# }
+module "ecr_backend" {
+  source      = "../../modules/ecr"
+  environment = var.environment
+  repo_name   = "3-tiers-app-backend-${var.environment}"
+  tags        = local.common_tags
+}
 
-# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04
 # module "alb" {
 #   source                = "../../modules/alb"
 #   environment           = var.environment
@@ -36,14 +34,12 @@ module "network" {
 #   tags                  = local.common_tags
 # }
 
-# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04
 # module "ecs_cluster" {
 #   source      = "../../modules/ecs-cluster"
 #   environment = var.environment
 #   tags        = local.common_tags
 # }
 
-# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04
 # module "rds" {
 #   source            = "../../modules/rds"
 #   environment       = var.environment
@@ -62,7 +58,6 @@ module "network" {
 #   tags = local.common_tags
 # }
 
-# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04
 # module "iam_app_roles" {
 #   source              = "../../modules/iam-app-roles"
 #   environment         = var.environment
@@ -71,7 +66,6 @@ module "network" {
 #   tags                = local.common_tags
 # }
 
-# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04
 # module "ecs_service" {
 #   source                = "../../modules/ecs-service"
 #   environment           = var.environment
@@ -96,7 +90,6 @@ module "network" {
 #   tags = local.common_tags
 # }
 
-# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04
 # module "frontend_cdn" {
 #   source                  = "../../modules/frontend-cdn"
 #   environment             = var.environment
@@ -106,7 +99,6 @@ module "network" {
 #   tags                    = local.common_tags
 # }
 
-# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04
 # module "observability" {
 #   source              = "../../modules/observability"
 #   environment         = var.environment
