@@ -24,15 +24,15 @@ module "ecr_backend" {
   tags        = local.common_tags
 }
 
-# module "alb" {
-#   source                = "../../modules/alb"
-#   environment           = var.environment
-#   vpc_id                = module.network.vpc_id
-#   public_subnet_ids     = module.network.public_subnet_ids
-#   domain_name           = var.domain_name
-#   existing_acm_cert_arn = var.alb_acm_cert_arn
-#   tags                  = local.common_tags
-# }
+module "alb" {
+  source                = "../../modules/alb"
+  environment           = var.environment
+  vpc_id                = module.network.vpc_id
+  public_subnet_ids     = module.network.public_subnet_ids
+  domain_name           = var.domain_name
+  existing_acm_cert_arn = var.alb_acm_cert_arn
+  tags                  = local.common_tags
+}
 
 # module "ecs_cluster" {
 #   source      = "../../modules/ecs-cluster"

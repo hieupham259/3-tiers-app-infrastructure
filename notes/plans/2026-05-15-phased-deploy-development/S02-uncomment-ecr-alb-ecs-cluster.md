@@ -155,7 +155,7 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
 
 ### Sub-tasks S02b
 
-- [ ] S02b-T01 - Un-comment `module "alb"` + companion outputs
+- [x] S02b-T01 - Un-comment `module "alb"` + companion outputs
   - Assignee: iac-builder
   - Files:
     - `envs/_shared/main.tf` dong 29-37: un-comment block `module "alb"`
@@ -163,7 +163,7 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
     - `envs/_shared/outputs.tf` dong 52-55: un-comment `output "alb_dns_name"`
   - Notes: ALB ref `module.network.vpc_id` va `module.network.public_subnet_ids` - 2 output da co san tu S01. ALB co `enable_deletion_protection = true` - resource stateful, can luu y khi destroy.
 
-- [ ] S02b-T02 - Review diff S02b
+- [x] S02b-T02 - Review diff S02b
   - Assignee: iac-reviewer
 
 - [ ] S02b-T03 - terraform plan xac nhan ~8 to add, 0 change, 0 destroy
@@ -235,6 +235,45 @@ Cac reviewer tick box khi verify xong (theo tung sub-sprint).
     - `tflint --recursive` -> KHONG chay duoc cuc bo (tflint khong cai). Han che moi truong, ghi nhan.
   - Finding NIT-1 (khong block): module `ecr` khong co `lifecycle { prevent_destroy = true }`. ECR khong nam trong stateful allowlist hien tai nen khong vi pham hard rule cua reviewer. Tuy nhien, neu repo bi destroy thi cac image (artifact deployed) se mat. Goi y (tuy chon, khong yeu cau cho S02a): them `prevent_destroy = true` trong module `ecr` o sprint sau neu user muon bao ve them. Khong block S02a.
   - Finding NIT-2 (khong block): `output "ecr_backend_url"` un-comment trong `envs/_shared/outputs.tf` nhung root `envs/development/outputs.tf` KHONG re-export. Da ghi nhan o Notes cua S02a-T01 ("khong noi len `terraform output`"). Doc bang SSM parameter van OK. Khong block.
+- Playwright not used; no screenshots to clean.
+
+### 2026-05-16 - iac-reviewer (S02b)
+- Verdict: approve
+- Sub-tasks ticked: S02b-T01, S02b-T02 (chinh minh)
+- Sub-tasks reassigned to iac-builder: none
+- Sub-tasks reassigned to other agents: none (S02b-T03 van assign cho terraform-planner; S02b-T04 van assign cho user)
+- Open questions raised: none
+- Findings count: BLOCKER 0, HIGH 0, MEDIUM 0, LOW 0, NIT 2
+- Ghi chu:
+  - Diff `envs/_shared/main.tf` un-comment dung block `module "alb"` (dong 27-35) voi 7 argument: `source`, `environment`, `vpc_id`, `public_subnet_ids`, `domain_name`, `existing_acm_cert_arn`, `tags`. Khop chinh xac voi `modules/alb/variables.tf` (7 variable required/optional, khong thua khong thieu). Cac module con lai (`ecs_cluster`, `rds`, `iam_app_roles`, `ecs_service`, `frontend_cdn`, `observability`) van comment - dung scope S02b. Module `network` (S01) va `ecr_backend` (S02a) khong bi thay doi.
+  - Diff `envs/_shared/outputs.tf` un-comment dung 2 block: `aws_ssm_parameter "alb_dns_name"` (dong 38-42, path `/3-tiers-app/${var.environment}/alb/dns_name`, type `String`, value `module.alb.dns_name`) va `output "alb_dns_name"` (dong 50-53). SSM path hop le theo AWS SSM naming rules (leading `/`, khong prefix `aws`/`ssm`).
+  - Wiring verify: `module.network.vpc_id` va `module.network.public_subnet_ids` ton tai trong `modules/network/outputs.tf` (dong 1-3 va 16-19), type `string` va `list(string)` khop signature. `module.alb.dns_name` ton tai trong `modules/alb/outputs.tf` dong 11-14 (value `aws_lb.this.dns_name`).
+  - Var `var.domain_name` (`envs/_shared/variables.tf` dong 77-81, default `null`) va `var.alb_acm_cert_arn` (dong 83-87, default `null`) deu da khai bao truoc do voi default an toan. tfvars development giu commented placeholder cho ca 2 -> `existing_acm_cert_arn = null` o module ALB -> HTTPS listener `count = 0`, HTTP listener default action la `fixed-response 503`.
+  - Resource count cross-check voi expected `~8 to add`:
+    - `aws_security_group.alb` (1)
+    - `aws_security_group_rule.alb_ingress_https` (1)
+    - `aws_security_group_rule.alb_ingress_http_redirect` (1)
+    - `aws_security_group_rule.alb_egress_all` (1)
+    - `aws_lb.this` (1)
+    - `aws_lb_target_group.this` (1) - `target_type = "ip"` dung cho Fargate
+    - `aws_lb_listener.http_redirect` (1) - luon tao, dynamic action chuyen sang `fixed-response 503` khi cert null
+    - `aws_lb_listener.https` (0) - `count = var.existing_acm_cert_arn != null ? 1 : 0`
+    - `aws_ssm_parameter.alb_dns_name` (1)
+    - Total = **8 resource to add**, khop voi Definition of done S02b. Khong co resource lat (khong WAF, khong S3 access logs bucket auto-tao, khong null_resource/local-exec).
+  - `enable_deletion_protection = true` da duoc set san trong `modules/alb/main.tf` dong 42 (cong voi `drop_invalid_header_fields = true` dong 43 - security hardening). Hand-off cua iac-builder ghi "module hien khong set enable_deletion_protection, mac dinh AWS = false" la **bao SAI**; code thuc te DA set true. Plan note dung. Khong block.
+  - Khong su dung `terraform workspace`, khong co `provider` block trong `modules/`, khong co `moved`/`import`/`removed` block (un-comment = new resource, khong phai refactor), khong co CLI state mutation (`terraform state mv/rm`, `terraform import`) trong source/scripts.
+  - Stateful allowlist check: `aws_lb`, `aws_lb_target_group`, `aws_lb_listener`, `aws_security_group`, `aws_ssm_parameter` KHONG nam trong stateful allowlist cua repo (allowlist gom RDS/S3/KMS/EFS/DynamoDB/EIP/SecretsManager/ElastiCache/MSK/EKS). `lifecycle { prevent_destroy = true }` khong bat buoc. ALB co `enable_deletion_protection = true` o AWS level la du.
+  - Khong co secrets / account-ID hardcoded MOI trong diff S02b. Cac ARN `arn:aws:acm:us-east-1:405226342924:...` trong `envs/development/terraform.tfvars` la commented placeholder ton tai tu truoc S02b, khong thay doi boi sub-task nay.
+  - Quality gates:
+    - `terraform fmt -check -recursive envs/_shared/ modules/alb/` -> exit 0 (pass)
+    - `bash scripts/verify-envs-in-sync.sh` -> "OK: envs/development and envs/production are in sync." (pass)
+    - `diff envs/development/main.tf envs/production/main.tf` -> empty (parity pass)
+    - `diff envs/development/variables.tf envs/production/variables.tf` -> empty (parity pass)
+    - `terraform validate` -> KHONG chay duoc cuc bo (Terraform local v1.9.2 < required v1.11). Theo plan, terraform-planner verify tren CI runner (v1.13.3).
+    - `tflint --recursive` -> KHONG chay duoc cuc bo (tflint khong cai). Han che moi truong.
+  - Finding NIT-1 (khong block, reassign to user): variable `enable_waf` trong `modules/alb/variables.tf` dong 39-43 (default `false`) la **dead variable** - module khong co bat ky `aws_wafv2_*` resource nao. Variable nay ton tai tu truoc S02b, khong phai loi cua sub-task. Goi y cho Sprint cleanup sau: hoac implement WAF resource khi `enable_waf = true`, hoac xoa variable. Khong block S02b.
+  - Finding NIT-2 (khong block, reassign to user): `aws_security_group_rule.alb_ingress_https` luon tao ingress 443 du HTTPS listener co `count = 0` khi `alb_acm_cert_arn = null`. Khong phai loi (SG rule pre-provision cho khi cert duoc add sau, tranh chicken-and-egg), nhung dang ghi nhan de main thread brief terraform-planner. Khong block S02b.
+  - Note cho main thread (brief terraform-planner): expected plan +8 / 0 change / 0 destroy. 12 network resource (S01) + 3 ECR/SSM resource (S02a) chi "Refreshing state", khong bi modify. Neu plan output show >8 to add hoac bat ky change/destroy nao tren network/ECR, can investigate truoc khi apply.
 - Playwright not used; no screenshots to clean.
 
 ## Last updated

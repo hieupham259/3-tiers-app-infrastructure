@@ -35,11 +35,11 @@ resource "aws_ssm_parameter" "ecr_backend_url" {
 #   value = module.frontend_cdn.distribution_id
 # }
 
-# resource "aws_ssm_parameter" "alb_dns_name" {
-#   name  = "/3-tiers-app/${var.environment}/alb/dns_name"
-#   type  = "String"
-#   value = module.alb.dns_name
-# }
+resource "aws_ssm_parameter" "alb_dns_name" {
+  name  = "/3-tiers-app/${var.environment}/alb/dns_name"
+  type  = "String"
+  value = module.alb.dns_name
+}
 
 # --- Outputs the root layer exposes (for debugging) ---
 # output "ecs_cluster_name" {
@@ -47,10 +47,10 @@ resource "aws_ssm_parameter" "ecr_backend_url" {
 #   value       = module.ecs_cluster.cluster_name
 # }
 
-# output "alb_dns_name" {
-#   description = "ALB DNS name"
-#   value       = module.alb.dns_name
-# }
+output "alb_dns_name" {
+  description = "ALB DNS name"
+  value       = module.alb.dns_name
+}
 
 # output "frontend_bucket" {
 #   description = "Frontend S3 bucket name"
