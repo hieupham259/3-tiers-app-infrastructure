@@ -3,6 +3,7 @@ locals {
     Environment = var.environment
     Project     = "3-tiers-app"
     ManagedBy   = "terraform"
+    Repository  = var.repository
   })
 }
 
