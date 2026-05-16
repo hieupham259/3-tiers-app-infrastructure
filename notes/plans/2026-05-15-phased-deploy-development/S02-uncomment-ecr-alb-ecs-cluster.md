@@ -119,16 +119,23 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
   - Outputs: tick S02a-T01 neu OK; reassign neu phat hien BLOCKER
   - Notes: Kiem tra (1) khong co resource networking S01 bi thay doi; (2) SSM parameter path hop le; (3) `terraform validate` pass; (4) khong raise finding ve repo_name pattern postfix (da co exception).
 
-- [ ] S02a-T03 - terraform plan xac nhan 3 to add
-  - Assignee: terraform-planner
+- [X] S02a-T03 - terraform plan xac nhan 3 to add
+  - Assignee: terraform-planner (verify boi main thread tu output plan do user cung cap 2026-05-16)
   - Outputs: bao cao plan chi tiet, xac nhan +3 / 0 change / 0 destroy
   - MOI TRUONG CHAY: chay tren CI runner khi mo PR (Terraform 1.13.3), khong chay duoc o local v1.9.2
+  - Ket qua plan (2026-05-16):
+    - +1 `module.stack.module.ecr_backend.aws_ecr_repository.this[0]` ten `3-tiers-app-backend-development`, IMMUTABLE, AES256, scan_on_push=true, 6 tag
+    - +1 `module.stack.module.ecr_backend.aws_ecr_lifecycle_policy.this[0]` voi 2 rule (keep 30 tagged + expire untagged 7d)
+    - +1 `module.stack.aws_ssm_parameter.ecr_backend_url` path `/3-tiers-app/development/ecr/backend_url`, type String, value (sensitive - provider default cho aws_ssm_parameter)
+    - 12 resource networking S01 chi "Refreshing state" (read-only, khong bi modify)
+    - **Total: 3 to add, 0 change, 0 destroy** - khop hoan toan expected
+  - Ghi nhan minor inconsistency: SSM parameter khong duoc gan `tags = local.common_tags` (chi co 3 tag inherit tu provider default_tags, ECR repo co 6 tag). Khong block; defer cho Sprint cleanup neu can dong nhat tag policy.
 
-- [ ] S02a-T04 - Deploy S02a len branch development
+- [X] S02a-T04 - Deploy S02a len branch development
   - Assignee: user
   - Inputs: S02a-T03 plan an toan
-  - Outputs: ECR repo + SSM parameter ton tai tren development account
-  - Quy trinh:
+  - Outputs: ECR repo + SSM parameter ton tai tren development account (xac nhan boi user 2026-05-16)
+  - Quy trinh da thuc hien:
     1. Push branch `feature/phased-deploy-s02-ecr-alb-ecs`, mo PR base=`development`.
     2. Doi `terraform-plan.yaml` chay; verify plan comment tren PR la +3.
     3. Merge PR vao `development`.
@@ -231,6 +238,10 @@ Cac reviewer tick box khi verify xong (theo tung sub-sprint).
 - Playwright not used; no screenshots to clean.
 
 ## Last updated
+
+2026-05-16 by main thread - tick S02a-T04: user xac nhan ECR repo + SSM parameter da deploy thanh cong tren development account. Sub-sprint S02a HOAN TAT. San sang chuyen sang S02b (ALB).
+
+2026-05-16 by main thread - tick S02a-T03 sau khi user cung cap terraform plan output: +3 / 0 change / 0 destroy khop expected; ghi nhan minor finding SSM parameter thieu tag (defer)
 
 2026-05-16 by main thread - dismiss NIT-2 cua iac-reviewer (envs/development/outputs.tf khong ton tai); ghi rationale: repo intentional dung SSM la discovery layer duy nhat, S01 network cung khong co root output; quy tac cho cac Sprint sau
 
