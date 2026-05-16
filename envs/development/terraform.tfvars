@@ -1,5 +1,6 @@
 environment = "development"
 region      = "us-east-1"
+repository  = "3-tiers-app-infrastructure"
 
 # --- Network ---
 # Case 1 (empty account - self-create the VPC):

@@ -18,6 +18,8 @@ jobs:
           - { env: development, ref: development, account_id: '${{ vars.DEV_ACCOUNT_ID }}' }
           - { env: production, ref: production, account_id: '${{ vars.PROD_ACCOUNT_ID }}' }
     runs-on: ubuntu-latest
+    env:
+      TF_VAR_repository: ${{ github.event.repository.name }}
     defaults:
       run:
         working-directory: envs/${{ matrix.env }}
