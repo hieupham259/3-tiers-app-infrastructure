@@ -49,7 +49,7 @@ resource "aws_lb_target_group" "this" {
   name        = "${var.environment}-tg"
   port        = var.target_port
   protocol    = "HTTP"
-  target_type = "ip"
+  target_type = "ip" # for Fargate, EKS pods, on-prem servers, etc.
   vpc_id      = var.vpc_id
 
   health_check {
