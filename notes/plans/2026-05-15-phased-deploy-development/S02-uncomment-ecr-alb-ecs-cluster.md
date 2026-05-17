@@ -201,13 +201,23 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
 - [X] S02c-T02 - Review diff S02c
 
   - Assignee: iac-reviewer
-- [ ] S02c-T03 - terraform plan xac nhan 3 to add
+- [X] S02c-T03 - terraform plan xac nhan 3 to add
 
   - Assignee: terraform-planner
-- [ ] S02c-T04 - Deploy S02c len development
+  - MOI TRUONG CHAY: chay tren CI runner khi mo PR (Terraform 1.13.3); local v1.9.2 < required v1.11 nen plan duoc tien doan static tu source roi xac nhan boi plan comment CI
+  - Ket qua plan (2026-05-17):
+    - +1 `module.stack.module.ecs_cluster.aws_ecs_cluster.this` ten `development-3-tiers-app`, `setting { containerInsights = enabled }`, tags merge `local.common_tags` + `Name = "development-3-tiers-app"`
+    - +1 `module.stack.module.ecs_cluster.aws_ecs_cluster_capacity_providers.this` capacity providers `[FARGATE, FARGATE_SPOT]`, default strategy `FARGATE` weight 100 base 1
+    - +1 `module.stack.aws_ssm_parameter.ecs_cluster_name` path `/3-tiers-app/development/ecs/cluster_name`, type String, value `module.ecs_cluster.cluster_name`
+    - 23 resource da deploy (12 network S01 + 3 ECR/SSM S02a + 8 ALB/SSM S02b) chi "Refreshing state", khong bi modify
+    - **Total: 3 to add, 0 change, 0 destroy** - khop hoan toan expected
+  - Ghi nhan minor inconsistency: SSM parameter `ecs_cluster_name` khong gan `tags = local.common_tags` (lap lai pattern cua ECR/ALB SSM param). Khong block; defer cho Sprint cleanup
+- [X] S02c-T04 - Deploy S02c len development
 
   - Assignee: user
-  - Quy trinh tuong tu S02a-T04, branch moi `feature/phased-deploy-s02c-ecs-cluster`.
+  - Inputs: S02c-T03 plan an toan
+  - Outputs: ECS cluster `development-3-tiers-app` + capacity providers FARGATE/FARGATE_SPOT + SSM parameter `/3-tiers-app/development/ecs/cluster_name` ton tai tren development account (xac nhan boi user 2026-05-17)
+  - Quy trinh: branch `feature/phased-deploy-s02-ecr-alb-ecs` (giu nguyen branch da dung cho S02a/S02b thay vi tach branch moi), PR base=`development` -> terraform-plan +3/0/0 -> merge -> apply approve -> verify Console.
 
 ---
 
@@ -318,6 +328,8 @@ Cac reviewer tick box khi verify xong (theo tung sub-sprint).
 - Playwright not used; no screenshots to clean.
 
 ## Last updated
+
+2026-05-17 by main thread - tick S02c-T03 va S02c-T04: user xac nhan ECS cluster `development-3-tiers-app` + capacity providers FARGATE/FARGATE_SPOT + SSM parameter `/3-tiers-app/development/ecs/cluster_name` da deploy thanh cong tren development account. Sub-sprint S02c HOAN TAT. Toan bo Sprint S02 (S02a + S02b + S02c) HOAN TAT tren `development`. San sang chuyen sang S03 (RDS + IAM) hoac replicate sang `production`.
 
 2026-05-16 by main thread - tick S02a-T04: user xac nhan ECR repo + SSM parameter da deploy thanh cong tren development account. Sub-sprint S02a HOAN TAT. San sang chuyen sang S02b (ALB).
 
