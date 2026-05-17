@@ -1,9 +1,9 @@
 # --- Publish outputs to SSM Parameter Store for app repos to read ---
-# resource "aws_ssm_parameter" "ecs_cluster_name" {
-#   name  = "/3-tiers-app/${var.environment}/ecs/cluster_name"
-#   type  = "String"
-#   value = module.ecs_cluster.cluster_name
-# }
+resource "aws_ssm_parameter" "ecs_cluster_name" {
+  name  = "/3-tiers-app/${var.environment}/ecs/cluster_name"
+  type  = "String"
+  value = module.ecs_cluster.cluster_name
+}
 
 # resource "aws_ssm_parameter" "ecs_service_name" {
 #   name  = "/3-tiers-app/${var.environment}/ecs/service_name"
@@ -42,10 +42,10 @@ resource "aws_ssm_parameter" "alb_dns_name" {
 }
 
 # --- Outputs the root layer exposes (for debugging) ---
-# output "ecs_cluster_name" {
-#   description = "ECS cluster name"
-#   value       = module.ecs_cluster.cluster_name
-# }
+output "ecs_cluster_name" {
+  description = "ECS cluster name"
+  value       = module.ecs_cluster.cluster_name
+}
 
 output "alb_dns_name" {
   description = "ALB DNS name"
