@@ -17,7 +17,7 @@ Quyet dinh thiet ke:
 
 | ID  | Title                                    | Status  | Owner of last update |
 |-----|------------------------------------------|---------|----------------------|
-| S01 | Add Repository tag via shared env layer  | planned | task-planner         |
+| S01 | Add Repository tag via shared env layer  | done tren `development` (merged + apply PASS 2026-05-17); cho replicate `production` | main thread |
 
 ## Open questions
 
@@ -30,5 +30,14 @@ Khong con cau hoi mo. Tat ca quyet dinh da duoc ghi ro trong Context.
 - Khong doi ten tag key thanh bat ky gia tri khac ngoai `Repository`.
 
 ## Last updated
+
+2026-05-17 by main thread - User xac nhan PR da merge vao `development` va
+`terraform-apply.yaml` chay PASS. Sprint S01 HOAN TAT tren `development`: tag `Repository` apply
+in-place tren toan bo resource hien co. Cho replicate sang `production`.
+
+2026-05-17 by main thread - cap nhat status S01: builder + reviewer xong; user da tao PR
+(combined voi S02d ALB HTTP fix) tu `feature/phased-deploy-s02-ecr-alb-ecs` vao `development`,
+workflow `terraform-plan.yaml` chay PASS, plan khong co replace/destroy do tag `Repository`
+(in-place update). Cho buoc merge cua user.
 
 2026-05-16 by task-planner
