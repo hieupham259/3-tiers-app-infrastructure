@@ -62,7 +62,8 @@ Apply KHONG chay tu local. Theo CLAUDE.md, apply chi xay ra qua GitHub Actions p
 | ID | Title | Status | Owner of last update |
 |----|-------|--------|----------------------|
 | S01 | deploy-full-networking | done (merged to development 2026-05-16) | main thread |
-| S02 | uncomment-ecr-alb-ecs-cluster (split: S02a ECR / S02b ALB / S02c ECS cluster) | S02a done (deployed 2026-05-16); S02b/S02c pending | main thread |
+| S02 | uncomment-ecr-alb-ecs-cluster (split: S02a ECR / S02b ALB / S02c ECS cluster) | S02a done (deployed 2026-05-16); S02b done (ALB deployed); S02c pending | main thread |
+| S02d | fix-alb-http-forward (fix HTTP listener forward to TG when no ACM cert) | planned | task-planner |
 | S03 | uncomment-rds-iam | planned | task-planner |
 | S04 | uncomment-ecs-service-cdn-observability | planned | task-planner |
 
@@ -91,5 +92,7 @@ Luong lam viec:
 - Khong co rang buoc thu tu cung-nhip giua hai env; `development` co the di truoc `production` bao nhieu giai doan tuy y.
 
 ## Last updated
+
+2026-05-17 by task-planner - them S02d (fix ALB HTTP listener forward to TG khi khong co ACM cert); cap nhat status S02b -> done
 
 2026-05-15 by main thread - them section "Quyet dinh kien truc cost-optimization": bo NAT/EIP, 2 AZ public + 2 AZ private, ECS Fargate trong public subnet voi assign_public_ip=true; cap nhat anh huong toi S01/S03/S04; ghi nhan open question ve production NAT gating
