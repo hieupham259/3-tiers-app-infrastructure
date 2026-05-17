@@ -62,7 +62,7 @@ Apply KHONG chay tu local. Theo CLAUDE.md, apply chi xay ra qua GitHub Actions p
 | ID | Title | Status | Owner of last update |
 |----|-------|--------|----------------------|
 | S01 | deploy-full-networking | done (merged to development 2026-05-16) | main thread |
-| S02 | uncomment-ecr-alb-ecs-cluster (split: S02a ECR / S02b ALB / S02c ECS cluster) | S02a done (deployed 2026-05-16); S02b done (ALB deployed); S02c pending | main thread |
+| S02 | uncomment-ecr-alb-ecs-cluster (split: S02a ECR / S02b ALB / S02c ECS cluster) | done (S02a + S02b + S02c deployed tren `development` 2026-05-17); cho replicate `production` | main thread |
 | S02d | fix-alb-http-forward (fix HTTP listener forward to TG when no ACM cert) | done tren `development` (merged 2026-05-17, apply PASS); cho replicate `production` | main thread |
 | S03 | uncomment-rds-iam | planned | task-planner |
 | S04 | uncomment-ecs-service-cdn-observability | planned | task-planner |
@@ -92,6 +92,8 @@ Luong lam viec:
 - Khong co rang buoc thu tu cung-nhip giua hai env; `development` co the di truoc `production` bao nhieu giai doan tuy y.
 
 ## Last updated
+
+2026-05-17 by main thread - cap nhat status S02 sang done tren `development`: sub-sprint S02c (ECS cluster + capacity providers FARGATE/FARGATE_SPOT + SSM `ecs_cluster_name`) deploy thanh cong, 3/0/0 plan khop expected. Toan bo S02 (ECR + ALB + ECS cluster) hoan tat tren `development` account; san sang cho S03 hoac replicate `production`.
 
 2026-05-17 by main thread - cap nhat status S02d sang done tren `development`: user xac nhan PR
 da merge va `terraform-apply.yaml` chay PASS. Apply nay carry combined diff voi plan

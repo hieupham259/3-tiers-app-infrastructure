@@ -190,7 +190,7 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
 
 ### Sub-tasks S02c
 
-- [ ] S02c-T01 - Un-comment `module "ecs_cluster"` + companion outputs
+- [X] S02c-T01 - Un-comment `module "ecs_cluster"` + companion outputs
 
   - Assignee: iac-builder
   - Files:
@@ -198,16 +198,26 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
     - `envs/_shared/outputs.tf` dong 4-8: un-comment `aws_ssm_parameter "ecs_cluster_name"`
     - `envs/_shared/outputs.tf` dong 47-50: un-comment `output "ecs_cluster_name"`
   - Notes: ECS cluster co `containerInsights = enabled` (default) - phat sinh chi phi CloudWatch Logs/Metrics. Co the override `enable_container_insights = false` neu muon tiet kiem them.
-- [ ] S02c-T02 - Review diff S02c
+- [X] S02c-T02 - Review diff S02c
 
   - Assignee: iac-reviewer
-- [ ] S02c-T03 - terraform plan xac nhan 3 to add
+- [X] S02c-T03 - terraform plan xac nhan 3 to add
 
   - Assignee: terraform-planner
-- [ ] S02c-T04 - Deploy S02c len development
+  - MOI TRUONG CHAY: chay tren CI runner khi mo PR (Terraform 1.13.3); local v1.9.2 < required v1.11 nen plan duoc tien doan static tu source roi xac nhan boi plan comment CI
+  - Ket qua plan (2026-05-17):
+    - +1 `module.stack.module.ecs_cluster.aws_ecs_cluster.this` ten `development-3-tiers-app`, `setting { containerInsights = enabled }`, tags merge `local.common_tags` + `Name = "development-3-tiers-app"`
+    - +1 `module.stack.module.ecs_cluster.aws_ecs_cluster_capacity_providers.this` capacity providers `[FARGATE, FARGATE_SPOT]`, default strategy `FARGATE` weight 100 base 1
+    - +1 `module.stack.aws_ssm_parameter.ecs_cluster_name` path `/3-tiers-app/development/ecs/cluster_name`, type String, value `module.ecs_cluster.cluster_name`
+    - 23 resource da deploy (12 network S01 + 3 ECR/SSM S02a + 8 ALB/SSM S02b) chi "Refreshing state", khong bi modify
+    - **Total: 3 to add, 0 change, 0 destroy** - khop hoan toan expected
+  - Ghi nhan minor inconsistency: SSM parameter `ecs_cluster_name` khong gan `tags = local.common_tags` (lap lai pattern cua ECR/ALB SSM param). Khong block; defer cho Sprint cleanup
+- [X] S02c-T04 - Deploy S02c len development
 
   - Assignee: user
-  - Quy trinh tuong tu S02a-T04, branch moi `feature/phased-deploy-s02c-ecs-cluster`.
+  - Inputs: S02c-T03 plan an toan
+  - Outputs: ECS cluster `development-3-tiers-app` + capacity providers FARGATE/FARGATE_SPOT + SSM parameter `/3-tiers-app/development/ecs/cluster_name` ton tai tren development account (xac nhan boi user 2026-05-17)
+  - Quy trinh: branch `feature/phased-deploy-s02-ecr-alb-ecs` (giu nguyen branch da dung cho S02a/S02b thay vi tach branch moi), PR base=`development` -> terraform-plan +3/0/0 -> merge -> apply approve -> verify Console.
 
 ---
 
@@ -283,7 +293,43 @@ Cac reviewer tick box khi verify xong (theo tung sub-sprint).
   - Note cho main thread (brief terraform-planner): expected plan +8 / 0 change / 0 destroy. 12 network resource (S01) + 3 ECR/SSM resource (S02a) chi "Refreshing state", khong bi modify. Neu plan output show >8 to add hoac bat ky change/destroy nao tren network/ECR, can investigate truoc khi apply.
 - Playwright not used; no screenshots to clean.
 
+### 2026-05-17 - iac-reviewer (S02c)
+
+- Verdict: approve
+- Sub-tasks ticked: S02c-T01, S02c-T02 (chinh minh)
+- Sub-tasks reassigned to iac-builder: none
+- Sub-tasks reassigned to other agents: none (S02c-T03 van assign cho terraform-planner; S02c-T04 van assign cho user)
+- Open questions raised: none
+- Findings count: BLOCKER 0, HIGH 0, MEDIUM 0, LOW 0, NIT 1
+- Ghi chu:
+  - Diff `git diff development -- envs/_shared/main.tf envs/_shared/outputs.tf` chi gom 2 file, 14 insertion + 14 deletion (rong = un-comment thuan, khong sua noi dung HCL nao khac). `envs/_shared/main.tf` dong 38-42 un-comment block `module "ecs_cluster"` voi 3 argument (`source = "../../modules/ecs-cluster"`, `environment`, `tags`) - khop chinh xac `modules/ecs-cluster/variables.tf` (chi `environment` la required khong default; `enable_container_insights`, `capacity_providers`, `default_capacity_provider`, `tags` deu co default an toan). Module `network` (S01), `ecr_backend` (S02a), `alb` (S02b) KHONG bi thay doi. Cac module `rds`, `iam_app_roles`, `ecs_service`, `frontend_cdn`, `observability` van comment - dung scope S02c.
+  - Diff `envs/_shared/outputs.tf` un-comment dung 2 block: `aws_ssm_parameter "ecs_cluster_name"` (dong 2-6, path `/3-tiers-app/${var.environment}/ecs/cluster_name`, type `String`, value `module.ecs_cluster.cluster_name`) va `output "ecs_cluster_name"` (dong 45-48). SSM path hop le theo AWS SSM naming rules (leading `/`, khong prefix `aws`/`ssm`, segment phan cap ro rang).
+  - Wiring verify: `module.ecs_cluster.cluster_name` ton tai trong `modules/ecs-cluster/outputs.tf` dong 6-9 (value `aws_ecs_cluster.this.name`). Signature khop (string). Khong co consumer module nao trong S02c reference `cluster_id`/`cluster_arn` (cac module `ecs_service`, `observability` van comment).
+  - Naming convention check: ECS cluster name `${var.environment}-3-tiers-app` -> resource AWS ten `development-3-tiers-app` (PREFIX environment, dung convention chung cua repo `${env}-<resource>-<role>`). KHAC voi ECR repo (`3-tiers-app-backend-${var.environment}` POSTFIX, exception 2026-05-16) - tuc la cluster nay tuan thu convention chinh, khong can exception.
+  - Resource count cross-check voi expected `3 to add`:
+    - `aws_ecs_cluster.this` (1) - ten `development-3-tiers-app`, `containerInsights = enabled`
+    - `aws_ecs_cluster_capacity_providers.this` (1) - capacity providers `[FARGATE, FARGATE_SPOT]`, default strategy weight 100 FARGATE
+    - `aws_ssm_parameter.ecs_cluster_name` (1)
+    - Total = **3 resource to add**, khop voi Definition of done S02c. Module ecs-cluster KHONG tu tao `aws_cloudwatch_log_group` (Container Insights log group la AWS-managed runtime, dung). Khong co null_resource/local-exec.
+  - Stateful allowlist check: `aws_ecs_cluster`, `aws_ecs_cluster_capacity_providers`, `aws_ssm_parameter` KHONG nam trong stateful allowlist cua repo (allowlist gom RDS/S3/KMS/EFS/DynamoDB/EIP/SecretsManager/ElastiCache/MSK/EKS/aws_eks_node_group). `lifecycle { prevent_destroy = true }` khong bat buoc. ECS cluster co the destroy-recreate ma khong mat du lieu khach hang (chi mat resource shell).
+  - Khong su dung `terraform workspace`, khong co `provider` block trong `modules/ecs-cluster/`, khong co `moved`/`import`/`removed` block (un-comment = new resource, khong phai refactor), khong co CLI state mutation (`terraform state mv/rm`, `terraform import`) trong source/scripts/docs cua diff. Module `ecs-cluster` co `terraform { required_version = ">= 1.11" }` + `required_providers aws ~> 5.70` trong `versions.tf` - khop voi convention chung cua repo.
+  - Container Insights tradeoff: `enable_container_insights = true` (default module) -> phat sinh chi phi CloudWatch Logs/Metrics runtime. KHONG raise finding theo huong dan: Sprint plan dong 200 da ghi nhan tradeoff intentional, override `enable_container_insights = false` la optional khi can tiet kiem.
+  - Khong co secrets / account-ID hardcoded MOI trong diff S02c. Grep `arn:aws|405226342924|AKIA|password|secret` cho `envs/_shared/` chi match comment cu cho `module "rds"`/`ecs_service` (chua active) va ten variable `ecs_task_cpu`/`ecs_task_memory` - khong phai literal secret.
+  - Quality gates:
+    - `terraform fmt -check -recursive envs/_shared/ modules/ecs-cluster/` -> exit 0 (pass)
+    - `bash scripts/verify-envs-in-sync.sh` -> "OK: envs/development and envs/production are in sync." (pass)
+    - `diff envs/development/main.tf envs/production/main.tf` -> empty (parity pass)
+    - `diff envs/development/variables.tf envs/production/variables.tf` -> empty (parity pass)
+    - `envs/<env>/outputs.tf` KHONG ton tai o ca 2 env (dung design intent - SSM la discovery layer chinh thuc; NIT cu da dismiss 2026-05-16, KHONG raise lai).
+    - `terraform validate` -> KHONG chay duoc cuc bo (Terraform local v1.9.2 < required v1.11). Theo plan, terraform-planner se verify tren CI runner (v1.13.3).
+    - `tflint --recursive` -> KHONG chay duoc cuc bo (tflint khong cai). Han che moi truong.
+  - Finding NIT-1 (khong block, reassign to user): `aws_ssm_parameter.ecs_cluster_name` (cung nhu `ecr_backend_url` va `alb_dns_name`) KHONG co block `tags = local.common_tags` - lap lai minor inconsistency da ghi nhan o S02a-T03. Defer cho Sprint cleanup neu user muon dong nhat tag policy giua SSM param va resource module. Khong block S02c.
+  - Note cho main thread (brief terraform-planner): expected plan **+3 / 0 change / 0 destroy** tren development. 12 network resource (S01) + 3 ECR/SSM resource (S02a) + 8 ALB/SSM resource (S02b) chi "Refreshing state", khong bi modify. Neu plan output show >3 to add hoac bat ky change/destroy nao tren network/ECR/ALB, can investigate truoc khi apply. ECS cluster ten phai la `development-3-tiers-app`, capacity providers `[FARGATE, FARGATE_SPOT]`, default strategy FARGATE weight 100.
+- Playwright not used; no screenshots to clean.
+
 ## Last updated
+
+2026-05-17 by main thread - tick S02c-T03 va S02c-T04: user xac nhan ECS cluster `development-3-tiers-app` + capacity providers FARGATE/FARGATE_SPOT + SSM parameter `/3-tiers-app/development/ecs/cluster_name` da deploy thanh cong tren development account. Sub-sprint S02c HOAN TAT. Toan bo Sprint S02 (S02a + S02b + S02c) HOAN TAT tren `development`. San sang chuyen sang S03 (RDS + IAM) hoac replicate sang `production`.
 
 2026-05-16 by main thread - tick S02a-T04: user xac nhan ECR repo + SSM parameter da deploy thanh cong tren development account. Sub-sprint S02a HOAN TAT. San sang chuyen sang S02b (ALB).
 
