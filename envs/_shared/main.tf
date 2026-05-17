@@ -41,31 +41,31 @@ module "ecs_cluster" {
   tags        = local.common_tags
 }
 
-# module "rds" {
-#   source            = "../../modules/rds"
-#   environment       = var.environment
-#   vpc_id            = module.network.vpc_id
-#   subnet_ids        = module.network.private_subnet_ids
-#   instance_class    = var.rds_instance_class
-#   multi_az          = var.rds_multi_az
-#   allocated_storage = var.rds_storage_gb
-#
-#   backup_retention_days = var.rds_backup_retention_days
-#   deletion_protection   = var.rds_deletion_protection
-#   skip_final_snapshot   = var.environment != "production"
-#
-#   ingress_security_group_ids = [module.ecs_service.security_group_id]
-#
-#   tags = local.common_tags
-# }
+module "rds" {
+  source            = "../../modules/rds"
+  environment       = var.environment
+  vpc_id            = module.network.vpc_id
+  subnet_ids        = module.network.private_subnet_ids
+  instance_class    = var.rds_instance_class
+  multi_az          = var.rds_multi_az
+  allocated_storage = var.rds_storage_gb
 
-# module "iam_app_roles" {
-#   source              = "../../modules/iam-app-roles"
-#   environment         = var.environment
-#   rds_secret_arn      = module.rds.secret_arn
-#   frontend_bucket_arn = module.frontend_cdn.bucket_arn
-#   tags                = local.common_tags
-# }
+  backup_retention_days = var.rds_backup_retention_days
+  deletion_protection   = var.rds_deletion_protection
+  skip_final_snapshot   = var.environment != "production"
+
+  ingress_security_group_ids = [] # S03: temporary empty list, restored in S04
+
+  tags = local.common_tags
+}
+
+module "iam_app_roles" {
+  source              = "../../modules/iam-app-roles"
+  environment         = var.environment
+  rds_secret_arn      = module.rds.secret_arn
+  frontend_bucket_arn = null # S03: temporary null, restored in S04
+  tags                = local.common_tags
+}
 
 # module "ecs_service" {
 #   source                = "../../modules/ecs-service"

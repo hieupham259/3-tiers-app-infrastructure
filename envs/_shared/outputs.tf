@@ -62,11 +62,11 @@ output "alb_dns_name" {
 #   value       = module.frontend_cdn.distribution_id
 # }
 
-# output "rds_endpoint" {
-#   description = "RDS endpoint"
-#   value       = module.rds.endpoint
-#   sensitive   = true
-# }
+output "rds_endpoint" {
+  description = "RDS endpoint"
+  value       = module.rds.endpoint
+  sensitive   = true
+}
 
 output "ecr_backend_url" {
   description = "ECR repository URL for the backend"
