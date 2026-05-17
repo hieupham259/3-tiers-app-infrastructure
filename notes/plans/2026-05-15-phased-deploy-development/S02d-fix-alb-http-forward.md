@@ -62,7 +62,7 @@ resource moi, khong destroy resource nao.
     count, khong doi label) -> chi la in-place update -> KHONG can `moved`/`import`/`removed` block.
     Khong tao bien moi; dung lai `var.existing_acm_cert_arn` da co.
 
-- [ ] S02d-T02 - Review diff S02d
+- [x] S02d-T02 - Review diff S02d
   - Assignee: iac-reviewer
   - Inputs / preconditions: diff cua S02d-T01 so voi `modules/alb/main.tf` hien tai.
   - Outputs / artifacts: tick S02d-T01 neu OK; reassign neu phat hien BLOCKER/HIGH. Append vao
@@ -76,9 +76,12 @@ resource moi, khong destroy resource nao.
     - Verify khong co thay doi nao trong `envs/` (luat verify-envs-in-sync phai pass).
     - Day la in-place update, KHONG phai state-changing refactor -> khong yeu cau `moved`/`import`.
     - `aws_lb_listener` KHONG nam trong stateful allowlist -> khong yeu cau `prevent_destroy`.
+  - Ket qua: iac-reviewer approve ngay 2026-05-17 (xem `## Review log` ben duoi),
+    findings BLOCKER/HIGH/MEDIUM/LOW/NIT deu = 0.
 
-- [ ] S02d-T03 - terraform plan xac nhan 1 change, 0 add, 0 destroy
-  - Assignee: terraform-planner
+- [x] S02d-T03 - terraform plan xac nhan 1 change, 0 add, 0 destroy
+  - Assignee: terraform-planner (verified via PR's `terraform-plan.yaml` workflow run, khong chay
+    terraform-planner agent rieng)
   - Inputs / preconditions: S02d-T01 hoan tat va da duoc S02d-T02 approve.
   - Outputs / artifacts: bao cao plan chi tiet, xac nhan:
     - `module.stack.module.alb.aws_lb_listener.http_redirect` -> in-place update `default_action`
@@ -89,13 +92,18 @@ resource moi, khong destroy resource nao.
       (ngoai tru chinh listener dang duoc update)
     - Neu plan show bat ky replace hoac destroy nao, dung lai va bao cao ngay - KHONG apply.
   - Depends on: S02d-T02
+  - Ket qua (2026-05-17): PR tu `feature/phased-deploy-s02-ecr-alb-ecs` -> `development` da duoc
+    user tao; workflow `terraform-plan.yaml` (jobs `sync-check` + `plan`) chay PASS. Plan output
+    duoc post len PR comment qua step "Comment plan on PR"; user xac nhan plan output khop
+    Definition of done (1 in-place change, 0 add, 0 destroy). Day la PR tong hop carry ca diff
+    `add-repository-tag` Sprint (xem cross-reference o `notes/plans/2026-05-16-add-repository-tag/`).
 
-- [ ] S02d-T04 - Deploy S02d len development
+- [x] S02d-T04 - Deploy S02d len development
   - Assignee: user
   - Inputs / preconditions: S02d-T03 xac nhan plan an toan (1 change, 0 destroy, 0 replace).
   - Outputs / artifacts:
-    - Branch `feature/phased-deploy-s02d-alb-http-forward` (hoac update tren branch hien tai neu
-      phu hop) duoc push va merge vao `development` qua PR.
+    - Branch `feature/phased-deploy-s02-ecr-alb-ecs` (carry combined diff cua S02d + S01
+      `add-repository-tag`) duoc push va merge vao `development` qua PR.
     - `terraform-apply.yaml` chay thanh cong tren development.
     - AWS Console: HTTP listener (port 80) cua ALB `development-alb` hien thi action `forward` den
       TG `development-tg`.
@@ -103,6 +111,12 @@ resource moi, khong destroy resource nao.
   - Notes: Quy trinh tuong tu S02a-T04. Sau khi deploy, TG bat dau nhan traffic HTTP nhung van
     co 0 healthy target vi `module "ecs_service"` chua duoc un-comment (se xu ly o S04). Day la
     ket qua mong doi; khong block viec verify S02d.
+  - Ket qua (2026-05-17): User xac nhan PR (`feature/phased-deploy-s02-ecr-alb-ecs` ->
+    `development`) da merge va `terraform-apply.yaml` chay PASS tren development. HTTP listener
+    port 80 cua `development-alb` da chuyen sang action `forward` -> TG `development-tg`. Apply
+    nay carry ca tag `Repository` (in-place update tren toan bo resource hien co - xem
+    `notes/plans/2026-05-16-add-repository-tag/S01-add-repository-tag.md`). Replicate sang
+    `production` chua thuc hien - se mo PR base=`production` rieng khi user san sang.
 
 ## Review checklist
 
@@ -125,5 +139,13 @@ Reviewer tick box khi verify xong tung sub-task.
 Khong co open question. Thiet ke da duoc user xac nhan day du.
 
 ## Last updated
+
+2026-05-17 by main thread - tick S02d-T04: user xac nhan PR da merge vao `development` va
+`terraform-apply.yaml` chay PASS. Sub-sprint S02d HOAN TAT tren development. Cho replicate sang
+`production` khi user san sang (mo PR base=`production`).
+
+2026-05-17 by main thread - tick S02d-T02 (iac-reviewer da approve trong review log nhung quen
+tick checkbox) va tick S02d-T03 sau khi user tao PR vao `development` va workflow
+`terraform-plan.yaml` chay PASS. Con lai S02d-T04 (deploy = merge PR) cho user.
 
 2026-05-17 by task-planner

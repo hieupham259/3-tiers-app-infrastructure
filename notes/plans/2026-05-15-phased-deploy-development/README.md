@@ -63,7 +63,7 @@ Apply KHONG chay tu local. Theo CLAUDE.md, apply chi xay ra qua GitHub Actions p
 |----|-------|--------|----------------------|
 | S01 | deploy-full-networking | done (merged to development 2026-05-16) | main thread |
 | S02 | uncomment-ecr-alb-ecs-cluster (split: S02a ECR / S02b ALB / S02c ECS cluster) | S02a done (deployed 2026-05-16); S02b done (ALB deployed); S02c pending | main thread |
-| S02d | fix-alb-http-forward (fix HTTP listener forward to TG when no ACM cert) | planned | task-planner |
+| S02d | fix-alb-http-forward (fix HTTP listener forward to TG when no ACM cert) | done tren `development` (merged 2026-05-17, apply PASS); cho replicate `production` | main thread |
 | S03 | uncomment-rds-iam | planned | task-planner |
 | S04 | uncomment-ecs-service-cdn-observability | planned | task-planner |
 
@@ -92,6 +92,14 @@ Luong lam viec:
 - Khong co rang buoc thu tu cung-nhip giua hai env; `development` co the di truoc `production` bao nhieu giai doan tuy y.
 
 ## Last updated
+
+2026-05-17 by main thread - cap nhat status S02d sang done tren `development`: user xac nhan PR
+da merge va `terraform-apply.yaml` chay PASS. Apply nay carry combined diff voi plan
+`2026-05-16-add-repository-tag` (tag `Repository` apply tren toan bo resource hien co).
+
+2026-05-17 by main thread - cap nhat status S02d: builder + reviewer da xong, PR cua user vao
+`development` chay `terraform-plan.yaml` PASS; cho buoc merge (S02d-T04). PR nay carry cung
+diff cua plan `2026-05-16-add-repository-tag` Sprint S01.
 
 2026-05-17 by task-planner - them S02d (fix ALB HTTP listener forward to TG khi khong co ACM cert); cap nhat status S02b -> done
 
