@@ -25,5 +25,6 @@ module "stack" {
 
   alarm_sns_topic_arn = var.alarm_sns_topic_arn
 
-  tags = var.tags
+  repository = var.repository
+  tags       = var.tags
 }

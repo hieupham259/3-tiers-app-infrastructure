@@ -1,5 +1,3 @@
-# PHASED-DEPLOY S01: all outputs commented out, restore progressively in S02/S03/S04
-
 # --- Publish outputs to SSM Parameter Store for app repos to read ---
 # resource "aws_ssm_parameter" "ecs_cluster_name" {
 #   name  = "/3-tiers-app/${var.environment}/ecs/cluster_name"
@@ -19,11 +17,11 @@
 #   value = module.ecs_service.task_definition_family
 # }
 
-# resource "aws_ssm_parameter" "ecr_backend_url" {
-#   name  = "/3-tiers-app/${var.environment}/ecr/backend_url"
-#   type  = "String"
-#   value = module.ecr_backend.repository_url
-# }
+resource "aws_ssm_parameter" "ecr_backend_url" {
+  name  = "/3-tiers-app/${var.environment}/ecr/backend_url"
+  type  = "String"
+  value = module.ecr_backend.repository_url
+}
 
 # resource "aws_ssm_parameter" "frontend_bucket" {
 #   name  = "/3-tiers-app/${var.environment}/frontend/bucket_name"
@@ -37,11 +35,11 @@
 #   value = module.frontend_cdn.distribution_id
 # }
 
-# resource "aws_ssm_parameter" "alb_dns_name" {
-#   name  = "/3-tiers-app/${var.environment}/alb/dns_name"
-#   type  = "String"
-#   value = module.alb.dns_name
-# }
+resource "aws_ssm_parameter" "alb_dns_name" {
+  name  = "/3-tiers-app/${var.environment}/alb/dns_name"
+  type  = "String"
+  value = module.alb.dns_name
+}
 
 # --- Outputs the root layer exposes (for debugging) ---
 # output "ecs_cluster_name" {
@@ -49,10 +47,10 @@
 #   value       = module.ecs_cluster.cluster_name
 # }
 
-# output "alb_dns_name" {
-#   description = "ALB DNS name"
-#   value       = module.alb.dns_name
-# }
+output "alb_dns_name" {
+  description = "ALB DNS name"
+  value       = module.alb.dns_name
+}
 
 # output "frontend_bucket" {
 #   description = "Frontend S3 bucket name"
@@ -70,10 +68,10 @@
 #   sensitive   = true
 # }
 
-# output "ecr_backend_url" {
-#   description = "ECR repository URL for the backend"
-#   value       = module.ecr_backend.repository_url
-# }
+output "ecr_backend_url" {
+  description = "ECR repository URL for the backend"
+  value       = module.ecr_backend.repository_url
+}
 
 # output "observability_ecs_cpu_alarm_arn" {
 #   description = "ARN of the ECS CPU CloudWatch alarm"

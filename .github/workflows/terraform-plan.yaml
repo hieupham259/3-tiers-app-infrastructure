@@ -34,6 +34,7 @@ jobs:
     env:
       ENV_DIR: ${{ github.base_ref == 'production' && 'production' || 'development' }}
       ACCOUNT_ID: ${{ github.base_ref == 'production' && vars.PROD_ACCOUNT_ID || vars.DEV_ACCOUNT_ID }}
+      TF_VAR_repository: ${{ github.event.repository.name }}
     defaults:
       run:
         working-directory: envs/${{ env.ENV_DIR }}

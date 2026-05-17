@@ -111,3 +111,8 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "repository" {
+  type        = string
+  description = "Source code repository name; tagged on all resources for traceability."
+}
