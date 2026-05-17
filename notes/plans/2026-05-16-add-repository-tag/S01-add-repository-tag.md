@@ -65,13 +65,28 @@ Bo sung tag `Repository` vao toan bo AWS resources bang cach: (1) them bien `rep
   - Outputs / artifacts: Tick checkbox S01-T04; ghi `## Review log` vao cuoi file nay. Reassign neu co van de.
   - Depends on: S01-T04
   - Notes: Kiem tra: `TF_VAR_repository` duoc them dung cho (job env block, khong phai step env block hay top-level env); `github.event.repository.name` la expression hop le cho ca push event (apply) lan pull_request event (plan); khong co secret nao bi expose.
-- [ ] S01-T07 - Chay terraform plan sau khi IaC va workflow duoc review xong
+- [x] S01-T07 - Chay terraform plan sau khi IaC va workflow duoc review xong
 
-  - Assignee: terraform-planner
+  - Assignee: terraform-planner (verified via PR's `terraform-plan.yaml` workflow run, khong chay
+    terraform-planner agent rieng)
   - Inputs / preconditions: S01-T05 va S01-T06 hoan tat va pass.
   - Outputs / artifacts: Danh sach change per env (development, production). Xac nhan khong co resource nao bi replace (tat ca phai la in-place update hoac no-op).
   - Depends on: S01-T05, S01-T06
   - Notes: Neu co resource nao bi replace do tag change (bat thuong, tag la in-place update tren AWS), bao cao ngay cho nguoi dung truoc khi apply.
+  - Ket qua (2026-05-17): PR tu `feature/phased-deploy-s02-ecr-alb-ecs` -> `development` da duoc
+    user tao (PR nay carry cung diff cua S02d ALB HTTP forward fix); workflow
+    `terraform-plan.yaml` (jobs `sync-check` + `plan`) chay PASS. `TF_VAR_repository` duoc inject
+    qua `${{ github.event.repository.name }}` tai `jobs.plan.env` (`terraform-plan.yaml:37`).
+    User xac nhan plan output khop expected: cac resource hien co (network S01, ECR S02a, ALB
+    S02b) chi nhan in-place tag update cho `Repository`, khong co replace/destroy. Plan tren
+    `production` chua duoc trigger - chi chay khi mo PR base=`production` (planned theo flow).
+  - Apply (2026-05-17): User xac nhan PR da merge vao `development` va `terraform-apply.yaml`
+    chay PASS. Tat ca resource hien co (network S01, ECR S02a, ALB S02b) deu nhan tag
+    `Repository = "3-tiers-app-infrastructure"` thong qua `local.common_tags` tai
+    `envs/_shared/main.tf:6`. Mong doi: Console verify tag `Repository` xuat hien tren cac
+    resource (vd: ALB `development-alb`, ECR repo `3-tiers-app-backend-development`). Sprint S01
+    HOAN TAT tren `development`. Replicate sang `production` cho khi user mo PR
+    base=`production` rieng.
 - [X] S01-T08 - Them `TF_VAR_repository` vao `.github/workflows/terraform-drift.yaml`
 
   - Assignee: github-action-builder
@@ -154,5 +169,18 @@ Khong co cau hoi mo. Tat ca quyet dinh da duoc ghi o README.md.
 - Playwright not used; no screenshots to clean.
 
 ## Last updated
+
+2026-05-17 by main thread - User xac nhan PR da merge vao `development` va
+`terraform-apply.yaml` chay PASS. Sprint S01 HOAN TAT tren `development`: tag `Repository` da
+duoc apply tren toan bo resource hien co. Cho replicate sang `production` khi user mo PR
+base=`production` rieng.
+
+2026-05-17 by main thread - tick S01-T07 sau khi user tao PR (cung PR voi S02d ALB HTTP fix) vao
+`development`; workflow `terraform-plan.yaml` chay PASS, plan khong co replace/destroy nao do
+tag `Repository` (in-place update nhu mong doi). Plan tren `production` cho den khi mo PR
+base=`production` rieng.
+
+2026-05-17 by iac-reviewer (follow-up audit: refactor bo default cua var.repository - xem entry
+review log o tren)
 
 2026-05-16 by iac-builder (follow-up: bo default cua var.repository, chuyen gia tri xuong terraform.tfvars)
