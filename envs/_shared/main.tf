@@ -35,11 +35,11 @@ module "alb" {
   tags                  = local.common_tags
 }
 
-# module "ecs_cluster" {
-#   source      = "../../modules/ecs-cluster"
-#   environment = var.environment
-#   tags        = local.common_tags
-# }
+module "ecs_cluster" {
+  source      = "../../modules/ecs-cluster"
+  environment = var.environment
+  tags        = local.common_tags
+}
 
 # module "rds" {
 #   source            = "../../modules/rds"
