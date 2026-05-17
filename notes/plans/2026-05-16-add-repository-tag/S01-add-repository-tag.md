@@ -19,21 +19,22 @@ Bo sung tag `Repository` vao toan bo AWS resources bang cach: (1) them bien `rep
 
 ## Sub-tasks
 
-- [x] S01-T01 - Them bien `repository` vao `envs/_shared/variables.tf` va ca hai `envs/development/variables.tf`, `envs/production/variables.tf`
+- [X] S01-T01 - Them bien `repository` vao `envs/_shared/variables.tf` va ca hai `envs/development/variables.tf`, `envs/production/variables.tf`
+
   - Assignee: iac-builder
   - Inputs / preconditions: Hieu ro cach `local.common_tags` hoat dong trong `envs/_shared/main.tf`; hai env phai byte-identical tru 3 file ngoai le.
   - Outputs / artifacts: `envs/_shared/variables.tf` va `envs/{development,production}/variables.tf` moi co block bien `repository` voi `type = string`, `default = "3-tiers-app-infrastructure"`, `description = "Name of the source repository managing this infrastructure"`.
   - Depends on: none
   - Notes: Bien phai co `default` de khong phat sinh loi khi terraform plan/apply chay tu local ma khong set env var. Description viet bang tieng Anh (file repo rule).
+- [X] S01-T02 - Truyen `repository = var.repository` tu env layer xuong `_shared` trong `envs/development/main.tf` va `envs/production/main.tf`
 
-- [x] S01-T02 - Truyen `repository = var.repository` tu env layer xuong `_shared` trong `envs/development/main.tf` va `envs/production/main.tf`
   - Assignee: iac-builder
   - Inputs / preconditions: S01-T01 phai hoan tat (bien `repository` ton tai o ca hai cap).
   - Outputs / artifacts: `envs/development/main.tf` va `envs/production/main.tf` them dong `repository = var.repository` vao block `module "stack"`. Noi dung hai file byte-identical.
   - Depends on: S01-T01
   - Notes: Chi them mot dong. Khong doi bat ky tham so nao khac cua module block.
+- [X] S01-T03 - Them bien `repository` vao `envs/_shared/variables.tf` (cap _shared) va merge vao `local.common_tags` trong `envs/_shared/main.tf`
 
-- [x] S01-T03 - Them bien `repository` vao `envs/_shared/variables.tf` (cap _shared) va merge vao `local.common_tags` trong `envs/_shared/main.tf`
   - Assignee: iac-builder
   - Inputs / preconditions: S01-T01 va S01-T02 hoan tat.
   - Outputs / artifacts:
@@ -41,8 +42,8 @@ Bo sung tag `Repository` vao toan bo AWS resources bang cach: (1) them bien `rep
     - `envs/_shared/main.tf`: block `locals` doi tu `merge(var.tags, { Environment = ..., Project = ..., ManagedBy = ... })` thanh `merge(var.tags, { Environment = ..., Project = ..., ManagedBy = ..., Repository = var.repository })`. Day la diem them tag duy nhat; khong can sua bat ky module nao.
   - Depends on: S01-T01, S01-T02
   - Notes: Thu tu key trong map khong anh huong chuc nang, nhung hay dat `Repository` sau `ManagedBy` de doc theo thu tu logic. Khong xoa cac key hien co.
+- [X] S01-T04 - Them `TF_VAR_repository` vao `.github/workflows/terraform-plan.yaml` va `.github/workflows/terraform-apply.yaml`
 
-- [x] S01-T04 - Them `TF_VAR_repository` vao `.github/workflows/terraform-plan.yaml` va `.github/workflows/terraform-apply.yaml`
   - Assignee: github-action-builder
   - Inputs / preconditions: S01-T01 hoan tat (bien Terraform ton tai). Khong phu thuoc vao S01-T02 hay S01-T03 de chay song song neu can, nhung de an toan thi sau khi S01-T03 xong.
   - Outputs / artifacts:
@@ -50,29 +51,29 @@ Bo sung tag `Repository` vao toan bo AWS resources bang cach: (1) them bien `rep
     - `terraform-apply.yaml`: trong `jobs.apply.env` block (hien co cac key `ENV_DIR`, `ACCOUNT_ID`), them `TF_VAR_repository: ${{ github.event.repository.name }}`.
   - Depends on: S01-T03
   - Notes: `github.event.repository.name` tra ve ten repo khong co owner prefix (vd: `3-tiers-app-infrastructure`), phu hop voi default value. Khong them vao top-level `env:` cua workflow (de tranh lo sang job `sync-check` khong can). Chi them vao job `plan` va job `apply`.
+- [X] S01-T05 - Review IaC changes (S01-T01, S01-T02, S01-T03)
 
-- [ ] S01-T05 - Review IaC changes (S01-T01, S01-T02, S01-T03)
   - Assignee: iac-reviewer
   - Inputs / preconditions: S01-T01, S01-T02, S01-T03 hoan tat.
   - Outputs / artifacts: Tick checkbox cac sub-task da pass; ghi `## Review log` vao cuoi file nay neu co finding. Reassign ve iac-builder neu co van de.
   - Depends on: S01-T01, S01-T02, S01-T03
   - Notes: Kiem tra: (1) byte-identical giua dev va prod tru 3 file ngoai le; (2) khong co resource block nao bi sua trong modules/; (3) tag key chinh ta; (4) default value dung; (5) terraform fmt sach; (6) tflint sach; (7) verify-envs-in-sync.sh sach.
+- [X] S01-T06 - Review GitHub Actions changes (S01-T04)
 
-- [x] S01-T06 - Review GitHub Actions changes (S01-T04)
   - Assignee: github-actions-reviewer
   - Inputs / preconditions: S01-T04 hoan tat.
   - Outputs / artifacts: Tick checkbox S01-T04; ghi `## Review log` vao cuoi file nay. Reassign neu co van de.
   - Depends on: S01-T04
   - Notes: Kiem tra: `TF_VAR_repository` duoc them dung cho (job env block, khong phai step env block hay top-level env); `github.event.repository.name` la expression hop le cho ca push event (apply) lan pull_request event (plan); khong co secret nao bi expose.
-
 - [ ] S01-T07 - Chay terraform plan sau khi IaC va workflow duoc review xong
+
   - Assignee: terraform-planner
   - Inputs / preconditions: S01-T05 va S01-T06 hoan tat va pass.
   - Outputs / artifacts: Danh sach change per env (development, production). Xac nhan khong co resource nao bi replace (tat ca phai la in-place update hoac no-op).
   - Depends on: S01-T05, S01-T06
   - Notes: Neu co resource nao bi replace do tag change (bat thuong, tag la in-place update tren AWS), bao cao ngay cho nguoi dung truoc khi apply.
+- [X] S01-T08 - Them `TF_VAR_repository` vao `.github/workflows/terraform-drift.yaml`
 
-- [x] S01-T08 - Them `TF_VAR_repository` vao `.github/workflows/terraform-drift.yaml`
   - Assignee: github-action-builder
   - Inputs / preconditions: S01-T04 va S01-T06 hoan tat. Follow-up tu LOW finding cua github-actions-reviewer.
   - Outputs / artifacts: `terraform-drift.yaml` co them `env:` block tai `jobs.drift` voi key `TF_VAR_repository: ${{ github.event.repository.name }}` de 3 workflow (`plan`, `apply`, `drift`) dong nhat ve cach inject `TF_VAR_repository`, tranh drift detection noisy khi default value cua `var.repository` doi trong tuong lai hoac repo bi rename.
@@ -88,6 +89,7 @@ Reviewer dung cach tick `- [ ]` thanh `- [x]` khi sub-task tuong ung da duoc xac
 (Trong - reviewers se ghi vao day sau khi kiem tra.)
 
 ### 2026-05-16 - iac-reviewer
+
 - Verdict: approve
 - Sub-tasks ticked: S01-T01, S01-T02, S01-T03
 - Sub-tasks reassigned to iac-builder: none
@@ -97,6 +99,7 @@ Reviewer dung cach tick `- [ ]` thanh `- [x]` khi sub-task tuong ung da duoc xac
 - Notes: Bien `repository` byte-identical giua 3 file env (type=string, default="3-tiers-app-infrastructure", description thong nhat). Tag `Repository` duoc merge vao `local.common_tags` tai mot diem duy nhat (`envs/_shared/main.tf:6`) va propagate xuong cac module dang wire (network/alb/ecr) qua `merge(var.tags, ...)`. `scripts/verify-envs-in-sync.sh` pass. `terraform fmt -check -recursive` pass. Khong co Vietnamese/emoji/secret trong code. Khong co refactor state-changing nen khong can `moved/import/removed` blocks. `tflint` chua chay duoc vi binary khong cai san tren may local cua reviewer (LOW finding - khong block).
 
 ### 2026-05-16 - github-actions-reviewer
+
 - Verdict: approve with comments
 - Sub-tasks ticked: S01-T04, S01-T06
 - Sub-tasks reassigned to github-action-builder: none (T04 da done; rui ro `terraform-drift.yaml` thieu `TF_VAR_repository` la finding LOW ngoai pham vi T04, de nguoi dung quyet dinh patch nhanh hoac mo sprint follow-up)
@@ -107,6 +110,7 @@ Reviewer dung cach tick `- [ ]` thanh `- [x]` khi sub-task tuong ung da duoc xac
 - Notes: `TF_VAR_repository: ${{ github.event.repository.name }}` duoc dat dung tai `jobs.plan.env` (`terraform-plan.yaml:37`) va `jobs.apply.env` (`terraform-apply.yaml:34`), khong leak sang job `sync-check`, khong dat o top-level `env:`. Expression hop le cho ca `pull_request` payload (plan) va `push` payload (apply) theo doc GitHub. `permissions:` block giu nguyen (`contents: read`, `id-token: write`, `pull-requests: write` chi o terraform-plan). OIDC giu nguyen, khong introduce static AWS keys. Branch-based env isolation giu nguyen. Khong echo/log secret. YAML tieng Anh, khong emoji.
 
 ### 2026-05-16 - github-action-builder (follow-up S01-T08)
+
 - Verdict: done
 - Sub-tasks ticked: S01-T08
 - Files changed: `.github/workflows/terraform-drift.yaml` (+2 lines: `env:` block voi `TF_VAR_repository: ${{ github.event.repository.name }}` tai `jobs.drift`).
@@ -120,6 +124,7 @@ Reviewer dung cach tick `- [ ]` thanh `- [x]` khi sub-task tuong ung da duoc xac
 Khong co cau hoi mo. Tat ca quyet dinh da duoc ghi o README.md.
 
 ### 2026-05-16 - iac-builder (follow-up: bo default, chuyen gia tri xuong tfvars theo pattern environment)
+
 - Verdict: done
 - Sub-tasks ticked: none (follow-up khong tao sub-task formal)
 - Files changed:
@@ -138,6 +143,7 @@ Khong co cau hoi mo. Tat ca quyet dinh da duoc ghi o README.md.
 - Open questions: none.
 
 ### 2026-05-17 - iac-reviewer (follow-up: audit refactor bo default cua var.repository)
+
 - Verdict: approve
 - Sub-tasks ticked: none (follow-up khong tao sub-task formal moi; S01-T01..T04, T06, T08 da duoc tick truoc do)
 - Sub-tasks reassigned to iac-builder: none

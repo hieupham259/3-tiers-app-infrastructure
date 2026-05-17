@@ -7,15 +7,16 @@ Deploy tung module mot trong nhom 3 module "first wave" (ECR repo, ALB, ECS clus
 ## CAP NHAT 2026-05-16: scope split per-module
 
 Sprint S02 ban dau planned deploy 3 module trong cung 1 PR (~14 resource). User quyet dinh chia nho thanh 3 sub-sprint doc lap de:
+
 - Verify tung module truoc khi qua module tiep theo (de pinpoint failure).
 - Rollback don gian neu can (chi revert 1 module thay vi 3).
 - Re-use cung pattern voi cac Sprint sau (S03 RDS, S04 ECS service / CDN / observability cung se split).
 
-| Sub-sprint | Module + companion blocks | Resource du kien |
-|-----------|---------------------------|------------------|
-| **S02a** | `module "ecr_backend"` + `aws_ssm_parameter "ecr_backend_url"` (+ `output "ecr_backend_url"` tuy chon) | 3 (ECR repo + lifecycle policy + SSM param) |
-| **S02b** | `module "alb"` + `aws_ssm_parameter "alb_dns_name"` + `output "alb_dns_name"` | 8 (LB + TG + 1 listener + SG + 3 SG rules + SSM param) - giam con 7 neu khong co ACM cert (HTTPS listener count=0) |
-| **S02c** | `module "ecs_cluster"` + `aws_ssm_parameter "ecs_cluster_name"` + `output "ecs_cluster_name"` | 3 (ECS cluster + cluster_capacity_providers + SSM param) |
+| Sub-sprint     | Module + companion blocks                                                                                    | Resource du kien                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| **S02a** | `module "ecr_backend"` + `aws_ssm_parameter "ecr_backend_url"` (+ `output "ecr_backend_url"` tuy chon) | 3 (ECR repo + lifecycle policy + SSM param)                                                                        |
+| **S02b** | `module "alb"` + `aws_ssm_parameter "alb_dns_name"` + `output "alb_dns_name"`                          | 8 (LB + TG + 1 listener + SG + 3 SG rules + SSM param) - giam con 7 neu khong co ACM cert (HTTPS listener count=0) |
+| **S02c** | `module "ecs_cluster"` + `aws_ssm_parameter "ecs_cluster_name"` + `output "ecs_cluster_name"`          | 3 (ECS cluster + cluster_capacity_providers + SSM param)                                                           |
 
 Moi sub-sprint chay full cycle: iac-builder -> iac-reviewer -> terraform-planner -> user deploy len development -> verify -> (optional) replicate sang production.
 
@@ -24,6 +25,7 @@ Moi sub-sprint chay full cycle: iac-builder -> iac-reviewer -> terraform-planner
 Toan bo 7 dong marker `# PHASED-DEPLOY S01: commented out, uncomment in S02/S03/S04` da bi xoa khoi `envs/_shared/main.tf` (cac module van comment: `alb`, `ecs_cluster`, `rds`, `iam_app_roles`, `ecs_service`, `frontend_cdn`, `observability`). Quyet dinh INTENTIONAL boi user.
 
 Tradeoff:
+
 - **Mat**: kha nang `grep '# PHASED-DEPLOY'` de quet nhanh cac module con pending o S03/S04.
 - **Duoc**: file `_shared/main.tf` gon hon, doc that hon (chi nhin block comment thay vi co them marker meta).
 
@@ -68,14 +70,14 @@ Khong duoc giu lai `"3-tiers-app-backend"` cu. Ket qua resource tren AWS: ECR re
 
 ### `envs/_shared/outputs.tf` - cac block companion
 
-| Block | Sub-sprint | Dong (file hien tai) |
-|-------|-----------|---------------------|
-| `aws_ssm_parameter "ecr_backend_url"` | S02a | 22-26 |
-| `output "ecr_backend_url"` | S02a (optional - root khong re-export) | 73-76 |
-| `aws_ssm_parameter "alb_dns_name"` | S02b | 40-44 |
-| `output "alb_dns_name"` | S02b | 52-55 |
-| `aws_ssm_parameter "ecs_cluster_name"` | S02c | 4-8 |
-| `output "ecs_cluster_name"` | S02c | 47-50 |
+| Block                                    | Sub-sprint                             | Dong (file hien tai) |
+| ---------------------------------------- | -------------------------------------- | -------------------- |
+| `aws_ssm_parameter "ecr_backend_url"`  | S02a                                   | 22-26                |
+| `output "ecr_backend_url"`             | S02a (optional - root khong re-export) | 73-76                |
+| `aws_ssm_parameter "alb_dns_name"`     | S02b                                   | 40-44                |
+| `output "alb_dns_name"`                | S02b                                   | 52-55                |
+| `aws_ssm_parameter "ecs_cluster_name"` | S02c                                   | 4-8                  |
+| `output "ecs_cluster_name"`            | S02c                                   | 47-50                |
 
 ### `envs/_shared/outputs.tf` - giu comment
 
@@ -104,6 +106,7 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
 ### Sub-tasks S02a
 
 - [X] S02a-T01 - Un-comment `module "ecr_backend"` + `aws_ssm_parameter "ecr_backend_url"` + `output "ecr_backend_url"`
+
   - Assignee: user (da thuc hien truc tiep tren branch `feature/phased-deploy-s02-ecr-alb-ecs`)
   - Done items:
     - `envs/_shared/main.tf` dong 21-26: `module "ecr_backend"` active, `repo_name = "3-tiers-app-backend-${var.environment}"`
@@ -112,14 +115,14 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
     - `envs/_shared/outputs.tf` dong 1: xoa header stale "# PHASED-DEPLOY S01: all outputs commented out..."
     - `envs/_shared/main.tf`: clean 8 vi tri double-blank-line (cosmetic, fmt-check da pass tu truoc)
   - Notes: Block `module "ecr_backend"` da co `repo_name` postfix-by-env theo quyet dinh CAP NHAT 2026-05-16. Output `output "ecr_backend_url"` van chua noi len `terraform output` vi `envs/development/outputs.tf` khong ton tai (gap kien truc tu S01) - khong block, chap nhan.
-
 - [X] S02a-T02 - Review diff S02a
+
   - Assignee: iac-reviewer
   - Inputs: diff cua S02a-T01 vs `development`
   - Outputs: tick S02a-T01 neu OK; reassign neu phat hien BLOCKER
   - Notes: Kiem tra (1) khong co resource networking S01 bi thay doi; (2) SSM parameter path hop le; (3) `terraform validate` pass; (4) khong raise finding ve repo_name pattern postfix (da co exception).
-
 - [X] S02a-T03 - terraform plan xac nhan 3 to add
+
   - Assignee: terraform-planner (verify boi main thread tu output plan do user cung cap 2026-05-16)
   - Outputs: bao cao plan chi tiet, xac nhan +3 / 0 change / 0 destroy
   - MOI TRUONG CHAY: chay tren CI runner khi mo PR (Terraform 1.13.3), khong chay duoc o local v1.9.2
@@ -130,8 +133,8 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
     - 12 resource networking S01 chi "Refreshing state" (read-only, khong bi modify)
     - **Total: 3 to add, 0 change, 0 destroy** - khop hoan toan expected
   - Ghi nhan minor inconsistency: SSM parameter khong duoc gan `tags = local.common_tags` (chi co 3 tag inherit tu provider default_tags, ECR repo co 6 tag). Khong block; defer cho Sprint cleanup neu can dong nhat tag policy.
-
 - [X] S02a-T04 - Deploy S02a len branch development
+
   - Assignee: user
   - Inputs: S02a-T03 plan an toan
   - Outputs: ECR repo + SSM parameter ton tai tren development account (xac nhan boi user 2026-05-16)
@@ -155,22 +158,23 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
 
 ### Sub-tasks S02b
 
-- [x] S02b-T01 - Un-comment `module "alb"` + companion outputs
+- [X] S02b-T01 - Un-comment `module "alb"` + companion outputs
+
   - Assignee: iac-builder
   - Files:
     - `envs/_shared/main.tf` dong 29-37: un-comment block `module "alb"`
     - `envs/_shared/outputs.tf` dong 40-44: un-comment `aws_ssm_parameter "alb_dns_name"`
     - `envs/_shared/outputs.tf` dong 52-55: un-comment `output "alb_dns_name"`
   - Notes: ALB ref `module.network.vpc_id` va `module.network.public_subnet_ids` - 2 output da co san tu S01. ALB co `enable_deletion_protection = true` - resource stateful, can luu y khi destroy.
+- [X] S02b-T02 - Review diff S02b
 
-- [x] S02b-T02 - Review diff S02b
   - Assignee: iac-reviewer
+- [X] S02b-T03 - terraform plan xac nhan ~8 to add, 0 change, 0 destroy
 
-- [ ] S02b-T03 - terraform plan xac nhan ~8 to add, 0 change, 0 destroy
   - Assignee: terraform-planner
   - Notes: Verify network resource khong bi thay doi; ECR resource S02a khong bi thay doi.
+- [X] S02b-T04 - Deploy S02b len development
 
-- [ ] S02b-T04 - Deploy S02b len development
   - Assignee: user
   - Quy trinh tuong tu S02a-T04, branch moi `feature/phased-deploy-s02b-alb`.
 
@@ -187,20 +191,21 @@ S02 considered done khi ca 3 sub-sprint S02a + S02b + S02c deploy len developmen
 ### Sub-tasks S02c
 
 - [ ] S02c-T01 - Un-comment `module "ecs_cluster"` + companion outputs
+
   - Assignee: iac-builder
   - Files:
     - `envs/_shared/main.tf` dong 40-44: un-comment block `module "ecs_cluster"`
     - `envs/_shared/outputs.tf` dong 4-8: un-comment `aws_ssm_parameter "ecs_cluster_name"`
     - `envs/_shared/outputs.tf` dong 47-50: un-comment `output "ecs_cluster_name"`
   - Notes: ECS cluster co `containerInsights = enabled` (default) - phat sinh chi phi CloudWatch Logs/Metrics. Co the override `enable_container_insights = false` neu muon tiet kiem them.
-
 - [ ] S02c-T02 - Review diff S02c
+
   - Assignee: iac-reviewer
-
 - [ ] S02c-T03 - terraform plan xac nhan 3 to add
-  - Assignee: terraform-planner
 
+  - Assignee: terraform-planner
 - [ ] S02c-T04 - Deploy S02c len development
+
   - Assignee: user
   - Quy trinh tuong tu S02a-T04, branch moi `feature/phased-deploy-s02c-ecs-cluster`.
 
@@ -215,6 +220,7 @@ Cac reviewer tick box khi verify xong (theo tung sub-sprint).
 (Cac reviewer append vao day sau khi hoan thanh review.)
 
 ### 2026-05-16 - iac-reviewer (S02a)
+
 - Verdict: approve
 - Sub-tasks ticked: S02a-T01 (giu nguyen [X] sau khi verify code khop voi description), S02a-T02 (chinh minh)
 - Sub-tasks reassigned to iac-builder: none
@@ -238,6 +244,7 @@ Cac reviewer tick box khi verify xong (theo tung sub-sprint).
 - Playwright not used; no screenshots to clean.
 
 ### 2026-05-16 - iac-reviewer (S02b)
+
 - Verdict: approve
 - Sub-tasks ticked: S02b-T01, S02b-T02 (chinh minh)
 - Sub-tasks reassigned to iac-builder: none
