@@ -75,14 +75,14 @@ Truoc khi un-comment va chinh sua, iac-builder can kiem tra:
 
 ## Sub-tasks
 
-- [ ] S03-T01 - Kiem tra `modules/iam-app-roles/variables.tf` va `modules/rds/main.tf` de xac nhan kha nang tuong thich voi gia tri tam thoi
+- [x] S03-T01 - Kiem tra `modules/iam-app-roles/variables.tf` va `modules/rds/main.tf` de xac nhan kha nang tuong thich voi gia tri tam thoi
   - Assignee: iac-builder
   - Inputs / preconditions: `modules/iam-app-roles/variables.tf`, `modules/rds/main.tf`
   - Outputs / artifacts: bao cao ngan: (1) bien `frontend_bucket_arn` co nullable/default null chua; (2) `aws_db_instance` co lifecycle prevent_destroy chua
   - Depends on: S02-T04 (giai doan truoc da deploy xong)
   - Notes: Neu `frontend_bucket_arn` khong co kha nang nhan null, them `nullable = true` hoac `default = null` vao variables.tf cua module iam-app-roles - day la chinh sua can thiet cho phased deploy va an toan
 
-- [ ] S03-T02 - Them lifecycle { prevent_destroy = true } cho aws_db_instance (va aws_secretsmanager_secret neu chua co) trong modules/rds/main.tf
+- [x] S03-T02 - Them lifecycle { prevent_destroy = true } cho aws_db_instance (va aws_secretsmanager_secret neu chua co) trong modules/rds/main.tf
   - Assignee: iac-builder
   - Inputs / preconditions: ket qua S03-T01
   - Outputs / artifacts: `modules/rds/main.tf` co lifecycle block tren db instance va secret resource
@@ -134,6 +134,14 @@ Cac reviewer tick box khi verify xong.
 ## Review log
 
 (Cac reviewer append vao day sau khi hoan thanh review.)
+
+### 2026-05-17 - S03-T01 ket qua (iac-builder via main thread)
+
+- `modules/iam-app-roles/variables.tf:11-15`: bien `frontend_bucket_arn` da co `type = string`, `default = null`, `nullable` mac dinh true → an toan nhan null. Khong sua file.
+- Phat hien phu (ngoai pham vi S03): bien `frontend_bucket_arn` la dead code - khong duoc tham chieu o bat ky resource nao trong `modules/iam-app-roles/`. De xuat cleanup sau S04: hoac them IAM policy thuc su dung bien, hoac xoa bien va tham so tuong ung.
+- `modules/rds/main.tf:37-40`: `aws_secretsmanager_secret.db` da co `lifecycle { prevent_destroy = true }`.
+- `modules/rds/main.tf:91-95`: `aws_db_instance.this` da co `lifecycle { prevent_destroy = true }` kem `ignore_changes = [final_snapshot_identifier, password]`.
+- Ket luan: S03-T02 khong can sua code -> tick Done luon. S03-T03 an toan tien hanh.
 
 ## Last updated
 
