@@ -57,7 +57,7 @@ Xoa inline policy `secrets-read-for-refresh` khoi `GhaInfraPlanRole` trong `boot
       (3) Cac role khac (GhaInfraApplyRole, GhaBackendDeployRole, GhaFrontendDeployRole) khong bi cham.
       (4) File sau khi sua identical voi noi dung truoc khi S01 bat dau (tru cac thay doi khac neu co).
 
-- [ ] S04-T03 - User: redeploy CFN stack bootstrap tren ca 2 AWS account (development va production)
+- [x] S04-T03 - User: redeploy CFN stack bootstrap tren ca 2 AWS account (development va production)
   - Assignee: user
   - Inputs / preconditions: S04-T02 approve; PR da merge vao `development` (va `production` neu production da duoc setup)
   - Outputs / artifacts: CFN stack update thanh cong; IAM role `gha-infra-plan` KHONG CON co inline policy `secrets-read-for-refresh` tren AWS Console
@@ -105,6 +105,21 @@ Xoa inline policy `secrets-read-for-refresh` khoi `GhaInfraPlanRole` trong `boot
 
 ---
 
+### 2026-05-18 - main-thread (S04 closure)
+
+Sprint S04 dong. Toan bo ke hoach fix secret-version-refresh-bomb hoan tat.
+
+- PR #25 (commit `5eaa867`) "update: update 03-github-oidc-roles.yaml" da merge vao `development`. Diff: xoa 11 dong inline policy `secrets-read-for-refresh` khoi `bootstrap/03-github-oidc-roles.yaml`.
+- User trigger workflow `Bootstrap (CFN - state backend + OIDC roles)` voi `account = development`. CFN stack `github-oidc-roles` update thanh cong.
+- Verify tren IAM Console: role `gha-infra-plan` chi con managed policy `ReadOnlyAccess` + inline policy `tfstate-rw`. Inline policy `secrets-read-for-refresh` da bien mat.
+- Final verification (S04-T03 step 4): chay 1 PR test, plan workflow PASS hoan toan, khong co `AccessDeniedException`. Plan refresh `aws_secretsmanager_secret.db` chi goi `DescribeSecret` (co trong `ReadOnlyAccess`) - khong can `GetSecretValue` nua.
+
+Trang thai cuoi cua role `gha-infra-plan` (least-privilege achieved):
+- `arn:aws:iam::aws:policy/ReadOnlyAccess` (managed)
+- Inline policy `tfstate-rw` (S3 + KMS cho terraform state backend)
+
+Khong con inline policy nao thua. Bom defused vinh vien, day du ke hoach hoan chinh.
+
 ## Last updated
 
-2026-05-18 by task-planner (chuyen tu optional sang mandatory: kien truc S03 v2 loai bo aws_secretsmanager_secret_version khoi tfstate, GetSecretValue tuyet doi khong can thiet)
+2026-05-18 by main-thread (S04 closed; ke hoach fix bomb hoan tat sau 4 Sprint S01-S04 va tong cong 4 PR #22 + #23 + #24 + #25)

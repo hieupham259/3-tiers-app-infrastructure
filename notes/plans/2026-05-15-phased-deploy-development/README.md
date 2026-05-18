@@ -64,7 +64,7 @@ Apply KHONG chay tu local. Theo CLAUDE.md, apply chi xay ra qua GitHub Actions p
 | S01 | deploy-full-networking | done (merged to development 2026-05-16) | main thread |
 | S02 | uncomment-ecr-alb-ecs-cluster (split: S02a ECR / S02b ALB / S02c ECS cluster) | done (S02a + S02b + S02c deployed tren `development` 2026-05-17); cho replicate `production` | main thread |
 | S02d | fix-alb-http-forward (fix HTTP listener forward to TG when no ACM cert) | done tren `development` (merged 2026-05-17, apply PASS); cho replicate `production` | main thread |
-| S03 | uncomment-rds-iam | planned | task-planner |
+| S03 | uncomment-rds-iam | done tren `development` 2026-05-18 qua plan rieng `2026-05-18-fix-secret-version-refresh-bomb` (PR #22, #23, #24, #25 sau khi gap bom GetSecretValue + apply fail rds_storage_gb < 20GB); thiet ke secret thay doi: CI/CD inject value tu GitHub Env Secret thay vi Terraform random_password; cho replicate `production` | main thread |
 | S04 | uncomment-ecs-service-cdn-observability | planned | task-planner |
 
 ## Chuoi phu thuoc giua Sprint

@@ -103,14 +103,14 @@ Truoc khi un-comment va chinh sua, iac-builder can kiem tra:
   - Depends on: S03-T03
   - Notes: Kiem tra dac biet: (1) `ingress_security_group_ids = []` - RDS security group se khong cho ECS vao, intentional trong giai doan nay; (2) `frontend_bucket_arn = null` - module iam_app_roles co the khong tao IAM policy cho bucket neu null; (3) lifecycle prevent_destroy co mat tren db instance va secret; (4) cac module van comment (ecs_service, frontend_cdn, observability) khong lo ra output nao
 
-- [ ] S03-T05 - Chay terraform plan xac nhan chi tao resource rds va iam_app_roles
+- [x] S03-T05 - Chay terraform plan xac nhan chi tao resource rds va iam_app_roles
   - Assignee: terraform-planner
   - Inputs / preconditions: code sau S03-T03 da review S03-T04 approve
   - Outputs / artifacts: bao cao plan; resource mong doi: RDS instance (1) + RDS security group (1) + RDS subnet group (1) + Secrets Manager secret (1) + IAM roles (2+) + IAM policies; output rds_endpoint
   - Depends on: S03-T04
   - Notes: Khong duoc co thay doi tren networking / ECR / ALB / ECS cluster da co tu S01-S02
 
-- [ ] S03-T06 - Deploy giai doan 3 len branch development
+- [x] S03-T06 - Deploy giai doan 3 len branch development
   - Assignee: user
   - Inputs / preconditions: S03-T05 xac nhan plan an toan
   - Outputs / artifacts: RDS instance trang thai available, IAM roles ton tai trong AWS Console
@@ -189,6 +189,36 @@ Quality gates summary:
 - envs in sync (scripts/verify-envs-in-sync.sh): PASS
 
 Playwright not used; no screenshots to clean.
+
+### 2026-05-18 - main-thread (S03 phased-deploy closure via bomb-fix plan)
+
+Sprint S03 cua phased-deploy KET THUC THANH CONG nhung qua duong vong. Quy trinh thuc te:
+
+1. **Apply lan 1 (S03-T06 dau)**: Fail vi `rds_storage_gb = 15` < 20GB toi thieu cua PostgreSQL gp3. Tuy nhien apply thanh cong mot phan: `random_password`, `aws_secretsmanager_secret`, `aws_secretsmanager_secret_version`, RDS security group, RDS subnet group, IAM roles - tat ca da vao tfstate. RDS instance KHONG tao duoc.
+
+2. **Bom xuat hien**: Tu lan plan tiep theo, role `gha-infra-plan` (chi co `ReadOnlyAccess`) khong the goi `GetSecretValue` de refresh `aws_secretsmanager_secret_version.db` -> AccessDeniedException -> dev env dong bang. Xem chi tiet tai `notes/plans/2026-05-18-fix-secret-version-refresh-bomb/`.
+
+3. **Plan rieng `2026-05-18-fix-secret-version-refresh-bomb`** giai quyet bang 4 Sprint:
+   - S01: Va tam `gha-infra-plan` them `GetSecretValue` -> unblock plan workflow.
+   - S02: Comment lai `module "rds"` + `module "iam_app_roles"` trong `envs/_shared/main.tf` -> destroy resource cu (PR #22).
+   - S03 v2 (Pattern C): Refactor `modules/rds` bo `random_password` + `aws_secretsmanager_secret_version` (loai bo bom khoi tfstate), thay bang `var.master_password` + composite action `sync-secret-value` inject value sau apply. Fix rds_storage_gb 15->20. Hardcode wiring. (PR #23, #24)
+   - S04: Xoa inline policy tam thoi cua S01 -> least-privilege achieved (PR #25).
+
+4. **Ket qua tuong duong S03-T05 va S03-T06 ban dau**:
+   - Plan thanh cong (qua CI workflow chu khong qua terraform-planner agent local).
+   - Apply thanh cong tren `development` branch sau khi merge PR #23 + #24.
+   - RDS instance `development-postgres` trang thai `available`.
+   - Secrets Manager secret ton tai (ten moi `/3-tiers-app/development/rds/credentials` thay vi `/...rds/master`).
+   - IAM roles `3-tiers-app-development-task*` ton tai.
+   - Bom defused vinh vien, plan workflow PR test sau S04 PASS hoan toan khong can `GetSecretValue`.
+
+5. **Khac biet vs design ban dau**:
+   - Secret name: `/3-tiers-app/<env>/rds/master` -> `/3-tiers-app/<env>/rds/credentials` (tranh conflict voi secret cu dang scheduled deletion).
+   - Password source: Terraform `random_password` -> GitHub Environment Secret `RDS_MASTER_PASSWORD` (per env), inject qua TF_VAR + post-apply CI step.
+   - Secret value owner: Terraform -> CI/CD composite action `sync-secret-value` (idempotent compare-then-write).
+   - Module Terraform khong con quan ly secret value, chi quan ly metadata.
+
+Tick S03-T05 va S03-T06: DONE qua route bomb-fix. Sprint S03 cua phased-deploy ket thuc; co the chuyen sang S04 cua phased-deploy (uncomment `ecs_service`, `frontend_cdn`, `observability`).
 
 ## Last updated
 
