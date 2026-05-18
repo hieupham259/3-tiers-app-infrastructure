@@ -217,21 +217,22 @@ Khong can thay doi logic chon environment trong workflow.
       (6) SKIP chay `act` locally vi step nay goi AWS API that (put-secret-value) --- ghi ro trong review log: "SKIP act: step requires real AWS credentials and live secret ARN".
       (7) Xac nhan workflow khong thay doi logic chon environment, OIDC, plan job, cac step khac.
 
-- [ ] S03-T08 - User: add GitHub Environment Secret `RDS_MASTER_PASSWORD` cho env `development` (va `production` neu can)
+- [x] S03-T08 - User: add GitHub Environment Secret `RDS_MASTER_PASSWORD` cho env `development` (va `production` neu can)
   - Assignee: user
   - Inputs / preconditions: S03-T06 va S03-T07 da approve; PR S03 chua duoc merge
   - Outputs / artifacts: GitHub Environment `development` co secret `RDS_MASTER_PASSWORD` duoc set; (tuy chon: GitHub Environment `production` co secret `RDS_MASTER_PASSWORD` rieng)
   - Depends on: S03-T06, S03-T07
   - Notes: |
       Cach tao password an toan (chay tren may local, KHONG commit ket qua):
-        openssl rand -base64 32
+        openssl rand -hex 32
+      LUU Y QUAN TRONG (hoc tu apply fail trong S03-T09): KHONG dung `openssl rand -base64 32` vi base64 alphabet co ky tu `/` va `+`, ma AWS RDS PostgreSQL CAM cac ky tu `/`, `"`, `@`, va space trong master password. Dung `-hex` chi sinh `0-9a-f` an toan tuyet doi.
       Vao GitHub repo > Settings > Environments > development > Environment secrets > Add secret:
         Name: RDS_MASTER_PASSWORD
-        Value: <ket qua cua openssl>
+        Value: <ket qua cua openssl rand -hex 32>
       Lam tuong tu cho `production` (gia tri KHAC voi dev).
       KHONG luu password nay vao file nao trong repo. KHONG paste vao terraform.tfvars, CLAUDE.md, hay bat ky note nao.
 
-- [ ] S03-T09 - User: commit + push + tao PR + merge + verify apply + verify bomb duoc pha
+- [x] S03-T09 - User: commit + push + tao PR + merge + verify apply + verify bomb duoc pha
   - Assignee: user
   - Inputs / preconditions: S03-T08 hoan thanh (GitHub Secret da set); PR S03 san sang merge
   - Outputs / artifacts: apply thanh cong; RDS instance trang thai `available`; secret `/3-tiers-app/development/rds/credentials` ton tai; plan workflow cua PR test pass ma KHONG co `AccessDeniedException`
@@ -328,6 +329,43 @@ Khong can thay doi logic chon environment trong workflow.
 
 ---
 
+### 2026-05-18 - main-thread (S03 closure)
+
+Sprint S03 dong. Apply tren development thanh cong sau 2 hotfix.
+
+**Diem chinh + cac hotfix phat sinh trong T09:**
+
+1. **Hotfix #1 (terraform-plan.yaml placeholder)** - PR #23 (S03 v2) merge xong, lan plan dau cua PR test gap loi `Error: No value for required variable` cho `rds_master_password`. Nguyen nhan: `terraform-plan.yaml` chua duoc update de pass `TF_VAR_rds_master_password`. Fix: them `TF_VAR_rds_master_password: 'plan-placeholder-not-used-for-apply'` (literal placeholder) vao job env cua plan workflow. Lý do dung placeholder thay vi secret thật: plan workflow chạy tren PR tu bat ky contributor → expose secret la rui ro security. Apply workflow van dung real secret. Plan/apply dung khac value cho `password` la OK vi variable sensitive (output luon hiển thi `(sensitive value)`) va `ignore_changes = [password]` ngan apply theo plan-time value.
+
+2. **Apply fail #1 (password format)** - Apply lan dau sau merge: `InvalidParameterValue` khi `CreateDBInstance`. Nguyen nhan: user dung `openssl rand -base64 32` sinh password, output co chua `/` va `+` - RDS PostgreSQL CAM cac ky tu `/`, `"`, `@`, va space. Fix: doi sang `openssl rand -hex 32` (chi `0-9a-f`, an toan tuyet doi). User update GitHub Environment Secret va re-run apply. Sub-task T08 notes da update de tranh repeat lan sau.
+
+3. **Apply fail #2 (terraform output)** - Apply re-run gap loi `Invalid format '│ Warning: No outputs found'` o step `Resolve RDS secret ARN and build desired value`. Nguyen nhan: workflow chay `terraform output -raw rds_secret_arn` trong `envs/development/`, nhung wrapper env khong re-export `module.stack.rds_secret_arn` len top level (`envs/_shared/outputs.tf` co output nay nhung chi o module level). Output `terraform output` returm warning text co ky tu `│` (box-drawing) pha format cua `$GITHUB_OUTPUT` heredoc parser.
+
+4. **Hotfix #2 (hardcode secret name)** - User chon Option B: bo dependency vao `terraform output` boi vi secret name la deterministic (`/3-tiers-app/${ENV_DIR}/rds/credentials`). Fix: thay 2 step (`Resolve...` + `Sync...`) bang 2 step gọn hơn (`Build RDS credentials JSON` + `Sync RDS secret value`), hardcode `secret-arn: /3-tiers-app/${{ env.ENV_DIR }}/rds/credentials`. Khong can them `envs/<env>/outputs.tf` re-export.
+
+**Ket qua sau khi hotfix #2 merge (PR #24):**
+
+- Apply workflow tren `development` thanh cong.
+- RDS instance `development-postgres` trang thai `available`.
+- Secret `/3-tiers-app/development/rds/credentials` co value (JSON `{username, password, dbname, port}`).
+- IAM roles `3-tiers-app-development-task*` ton tai.
+- Composite action `sync-secret-value` hoat dong dung pattern compare-then-write.
+
+**Bai hoc cho design lan sau:**
+
+- Khi them required variable cho module shared: phai update CA hai workflow (plan va apply) cung luc.
+- Hardcode resource name pattern trong workflow co khi don gian hon goi `terraform output` (chỉ ap dung khi name la deterministic; o day OK vi name khop voi `modules/rds/main.tf:25`).
+- Password generation: hex (a-f, 0-9) la safe default cho moi engine database; base64 co ky tu cam.
+- `aws_secretsmanager_secret` resource KHONG tu tao initial version - phai goi `PutSecretValue` rieng hoac dung `aws_secretsmanager_secret_version` (cai dang gay bom). Composite action handle case "secret chua co version" (`get-secret-value` fail voi ResourceNotFoundException, fallback empty string).
+
+**Files thuc te thay doi trong toan bo Sprint S03 v2 (3 PR vao development):**
+
+- PR #23 (commit `087d81c`): chinh code S03 (modules/rds, envs/_shared, envs/development, envs/production, .github/workflows/terraform-apply.yaml, .github/workflows/terraform-plan.yaml, .github/actions/sync-secret-value/ NEW, notes/plans/2026-05-18-fix-secret-version-refresh-bomb/*).
+- PR #24 (commit `3b114ca`): hotfix #2 `.github/workflows/terraform-apply.yaml` (hardcode secret name).
+- Plan workflow placeholder (hotfix #1) da gop chung vao PR #23.
+
+Sprint S03 dong. Tiep theo: S04 (mandatory cleanup gỡ inline policy `secrets-read-for-refresh` khoi `gha-infra-plan` - khong con can vi kien truc moi khong goi `GetSecretValue` cho refresh).
+
 ## Last updated
 
-2026-05-18 by task-planner (Sprint S03 v2: rewrite hoan toan tu secret_string_wo sang cicd-inject Pattern C)
+2026-05-18 by main-thread (Sprint S03 v2 closed sau 2 hotfix; apply success tren development)

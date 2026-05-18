@@ -67,17 +67,6 @@ Resources:
               - Effect: Allow
                 Action: [kms:Encrypt, kms:Decrypt, kms:GenerateDataKey, kms:DescribeKey]
                 Resource: !Ref TfstateKmsKeyArn
-        # Temporary policy (S01): allow GetSecretValue during refresh of
-        # aws_secretsmanager_secret_version.db so terraform plan does not fail
-        # with AccessDenied. Scoped to /3-tiers-app/* secrets only. To be
-        # removed in S04 after the module switches to secret_string_wo.
-        - PolicyName: secrets-read-for-refresh
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: secretsmanager:GetSecretValue
-                Resource: !Sub "arn:aws:secretsmanager:*:${AWS::AccountId}:secret:/3-tiers-app/*"
 
   # --- Apply role: Admin + tfstate (any workflow context from the infra repo) ---
   GhaInfraApplyRole:
