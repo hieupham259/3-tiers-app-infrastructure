@@ -15,7 +15,7 @@ vpc_cidr = "10.10.0.0/16"
 # --- RDS (development: small instance, single-AZ, short retention) ---
 rds_instance_class        = "db.t3.micro"
 rds_multi_az              = false
-rds_storage_gb            = 15
+rds_storage_gb            = 20
 rds_backup_retention_days = 7
 rds_deletion_protection   = false
 

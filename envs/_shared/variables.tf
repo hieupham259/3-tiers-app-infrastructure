@@ -57,6 +57,13 @@ variable "rds_deletion_protection" {
   default = true
 }
 
+variable "rds_master_password" {
+  type        = string
+  description = "RDS master password forwarded from env-level TF_VAR. Sourced from GitHub Environment Secret RDS_MASTER_PASSWORD (per env)."
+  sensitive   = true
+  nullable    = false
+}
+
 # --- ECS ---
 variable "ecs_task_cpu" {
   type    = number

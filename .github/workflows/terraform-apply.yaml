@@ -32,6 +32,7 @@ jobs:
       ENV_DIR: ${{ github.ref == 'refs/heads/production' && 'production' || 'development' }}
       ACCOUNT_ID: ${{ github.ref == 'refs/heads/production' && vars.PROD_ACCOUNT_ID || vars.DEV_ACCOUNT_ID }}
       TF_VAR_repository: ${{ github.event.repository.name }}
+      TF_VAR_rds_master_password: ${{ secrets.RDS_MASTER_PASSWORD }}
     defaults:
       run:
         working-directory: envs/${{ env.ENV_DIR }}
@@ -67,3 +68,34 @@ jobs:
 
       - name: Terraform apply
         run: terraform apply -no-color -input=false tfplan
+
+      - name: Resolve RDS secret ARN and build desired value
+        id: rds_secret
+        working-directory: envs/${{ env.ENV_DIR }}
+        env:
+          TF_VAR_rds_master_password: ${{ secrets.RDS_MASTER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          arn=$(terraform output -raw rds_secret_arn)
+          if [ -z "$arn" ]; then
+            echo "ERROR: terraform output rds_secret_arn is empty" >&2
+            exit 1
+          fi
+          # Build desired JSON safely with jq (escapes special chars in password).
+          desired=$(jq -nc \
+            --arg pw "$TF_VAR_rds_master_password" \
+            '{username:"app_admin",password:$pw,dbname:"appdb",port:5432}')
+          # Mask the value so it never appears in workflow log if accidentally echoed.
+          echo "::add-mask::$desired"
+          {
+            echo "arn=$arn"
+            echo 'desired<<SECRET_EOF'
+            echo "$desired"
+            echo SECRET_EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Sync RDS secret value
+        uses: ./.github/actions/sync-secret-value
+        with:
+          secret-arn: ${{ steps.rds_secret.outputs.arn }}
+          secret-string: ${{ steps.rds_secret.outputs.desired }}

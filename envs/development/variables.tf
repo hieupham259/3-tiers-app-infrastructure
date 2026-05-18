@@ -57,6 +57,13 @@ variable "rds_deletion_protection" {
   default = true
 }
 
+variable "rds_master_password" {
+  type        = string
+  description = "RDS master password. Sourced from GitHub Environment Secret RDS_MASTER_PASSWORD via TF_VAR_rds_master_password at apply time. NEVER set in terraform.tfvars."
+  sensitive   = true
+  nullable    = false
+}
+
 # --- ECS ---
 variable "ecs_task_cpu" {
   type    = number

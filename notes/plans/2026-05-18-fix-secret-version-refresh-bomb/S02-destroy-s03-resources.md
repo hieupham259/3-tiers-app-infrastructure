@@ -56,7 +56,7 @@ Day la dieu kien tien quyet (BLOCKER) cho S03: S03 se tao lai secret voi cung te
       Quy trinh: user push branch, mo PR, doi job `Terraform Plan / plan (pull_request)` chay xong, doc plan output trong PR comment. Plan se chay voi role `gha-infra-plan` (gio da co `secretsmanager:GetSecretValue` tu S01) nen refresh state thanh cong.
       Bonus: CLAUDE.md da duoc cap nhat them section "AWS CLI and AWS API call gate" de tranh agent tu y goi AWS API mà khong co user authorization.
 
-- [ ] S02-T04 - User: merge PR S02 vao development va verify apply thanh cong
+- [x] S02-T04 - User: merge PR S02 vao development va verify apply thanh cong
   - Assignee: user
   - Inputs / preconditions: S02-T03 (CI PR plan workflow) xac nhan plan an toan
   - Outputs / artifacts: apply thanh cong; state dev khong con chua resource cua `module.rds` va `module.iam_app_roles`
@@ -70,22 +70,14 @@ Day la dieu kien tien quyet (BLOCKER) cho S03: S03 se tao lai secret voi cung te
       5. Verify tren AWS Console: khong con security group `development-rds-sg`, khong con DB subnet group, khong con IAM roles `3-tiers-app-development-task*`.
       Luu y: secret van con tren AWS o trang thai "scheduled deletion" (recovery window 7 ngay) → can buoc tiep theo.
 
-- [ ] S02-T05 - User: force-delete secret `/3-tiers-app/development/rds/master` khoi AWS
-  - Assignee: user
-  - Inputs / preconditions: S02-T04 apply thanh cong; secret khong con trong Terraform state
-  - Outputs / artifacts: secret bi xoa hoan toan khoi AWS (khong con o trang thai "scheduled deletion")
+- [x] S02-T05 - User: force-delete secret `/3-tiers-app/development/rds/master` khoi AWS
+  - Assignee: user (SUPERSEDED -> S03-rev2 doi kiên truc, khong dung secret name cu nua)
+  - Inputs / preconditions: S02-T04 apply thanh cong
+  - Outputs / artifacts: SUPERSEDED -- secret cu `/3-tiers-app/development/rds/master` van o trang thai "scheduled deletion" 7 ngay (~2026-05-25 tu xoa). Khong can force-delete vi S03-rev2 doi ten thanh `/3-tiers-app/<env>/rds/credentials` (path moi).
   - Depends on: S02-T04
   - Notes: |
-      Chay lenh:
-      ```
-      aws secretsmanager delete-secret \
-        --secret-id /3-tiers-app/development/rds/master \
-        --force-delete-without-recovery \
-        --region us-east-1 \
-        --profile <dev-profile>
-      ```
-      Verify: vao AWS Console > Secrets Manager, xac nhan khong con secret nao ten `/3-tiers-app/development/rds/master` (ke ca o trang thai "scheduled deletion").
-      Neu khong force-delete ngay, S03 phai doi 7 ngay hoac dung ten khac cho secret.
+      DECISION (2026-05-18): User KHONG the chay AWS CLI nen force-delete thu cong khong kha thi.
+      Ban dau S03-v1 dinh dung secret_string_wo + rename thanh `master-credentials`, nhung sau do user yeu cau doi sang kien truc moi: Terraform chi tao secret metadata, CI/CD inject value tu GitHub Environment Secret. Xem Sprint S03-rev2.
 
 ## Acceptance criteria
 
@@ -108,6 +100,12 @@ Day la dieu kien tien quyet (BLOCKER) cho S03: S03 se tao lai secret voi cung te
 - Findings count: BLOCKER 0, HIGH 0, MEDIUM 0, LOW 0, NIT 0
 - Notes: Diff scope dung pham vi (chi `envs/_shared/main.tf` va `envs/_shared/outputs.tf`). Quality gates pass: `terraform fmt -check -recursive` clean, `terraform validate` clean ca dev + prod, `scripts/verify-envs-in-sync.sh` pass. `tflint` khong co tren PATH, khong tu cai theo CLAUDE.md - bo qua, khong block. Stateful resource destroy (Secrets Manager secret + IAM roles) la intent co chu y, da document trong README va S02 line 17 (prevent_destroy bypass khi comment-out la behavior mong muon) - khong can `moved`/`removed` block vi day la destroy that, khong phai refactor dia chi.
 
+### 2026-05-18 - main-thread (S02 closure)
+- S02-T04 done: User merge PR `fix/secret-version-refresh-bomb-s02` vao `development` (commit `efa4699`); apply workflow thanh cong. Verify tren AWS Console: khong con DB subnet group, IAM roles `3-tiers-app-development-task*`, secret `/3-tiers-app/development/rds/master` vao trang thai "scheduled deletion" 7 ngay.
+- Trong qua trinh: PR phai dieu chinh title de pass `check-state-preservation` action (them marker `acknowledged-destroy:module.stack.module.rds.aws_secretsmanager_secret.db`). Re-run failed jobs khong work vi GitHub Actions cache event payload --- fix bang push empty commit de trigger `synchronize` event.
+- S02-T05 SUPERSEDED: user khong chay AWS CLI duoc. Sprint S03-rev2 doi kien truc: Terraform chi tao secret metadata, value do CI/CD inject tu GitHub Environment Secret. Secret cu se tu xoa permanent sau 7 ngay.
+- Sprint S02 dong.
+
 ## Last updated
 
-2026-05-18 by task-planner
+2026-05-18 by main-thread (S02 closed; S03 redesigned in rev2)

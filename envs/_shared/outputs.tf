@@ -62,12 +62,16 @@ output "alb_dns_name" {
 #   value       = module.frontend_cdn.distribution_id
 # }
 
-# S02-TEMP: commented out to destroy S03 resources, restore in S03 of fix-secret-version-refresh-bomb
-# output "rds_endpoint" {
-#   description = "RDS endpoint"
-#   value       = module.rds.endpoint
-#   sensitive   = true
-# }
+output "rds_endpoint" {
+  description = "RDS endpoint"
+  value       = module.rds.endpoint
+  sensitive   = true
+}
+
+output "rds_secret_arn" {
+  description = "ARN of the RDS master credentials secret (value injected by CI/CD post-apply)"
+  value       = module.rds.secret_arn
+}
 
 output "ecr_backend_url" {
   description = "ECR repository URL for the backend"

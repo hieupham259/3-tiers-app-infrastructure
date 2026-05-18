@@ -21,15 +21,8 @@ resource "aws_security_group_rule" "ingress_from_ecs" {
   security_group_id        = aws_security_group.this.id
 }
 
-resource "random_password" "master" {
-  length  = 32
-  special = true
-  # Characters disallowed by RDS in passwords are excluded
-  override_special = "!#$%&*()-_=+[]{}<>:?"
-}
-
 resource "aws_secretsmanager_secret" "db" {
-  name                    = "/3-tiers-app/${var.environment}/rds/master"
+  name                    = "/3-tiers-app/${var.environment}/rds/credentials"
   description             = "RDS master credentials for ${var.environment}"
   recovery_window_in_days = 7
   tags                    = var.tags
@@ -38,16 +31,6 @@ resource "aws_secretsmanager_secret" "db" {
     # Prevent accidental destroy: deleting this secret strands the RDS master credentials and breaks every running ECS task until the secret is rotated and re-injected.
     prevent_destroy = true
   }
-}
-
-resource "aws_secretsmanager_secret_version" "db" {
-  secret_id = aws_secretsmanager_secret.db.id
-  secret_string = jsonencode({
-    username = var.master_username
-    password = random_password.master.result
-    dbname   = var.db_name
-    port     = 5432
-  })
 }
 
 resource "aws_db_instance" "this" {
@@ -65,7 +48,7 @@ resource "aws_db_instance" "this" {
 
   db_name  = var.db_name
   username = var.master_username
-  password = random_password.master.result
+  password = var.master_password
 
   multi_az = var.multi_az
 
