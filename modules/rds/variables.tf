@@ -33,7 +33,7 @@ variable "instance_class" {
 
 variable "allocated_storage" {
   type        = number
-  default     = 15
+  default     = 20
   description = "Storage GB"
 }
 
