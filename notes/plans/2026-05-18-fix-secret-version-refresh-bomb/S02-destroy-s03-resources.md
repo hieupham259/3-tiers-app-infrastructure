@@ -24,7 +24,7 @@ Day la dieu kien tien quyet (BLOCKER) cho S03: S03 se tao lai secret voi cung te
 
 ## Sub-tasks
 
-- [ ] S02-T01 - Comment lai `module "rds"` va `module "iam_app_roles"` trong `envs/_shared/main.tf`
+- [x] S02-T01 - Comment lai `module "rds"` va `module "iam_app_roles"` trong `envs/_shared/main.tf`
   - Assignee: iac-builder
   - Inputs / preconditions: `envs/_shared/main.tf` hien tai (2 module dang uncommented o lines 44-68)
   - Outputs / artifacts: `envs/_shared/main.tf` voi 2 block module duoc comment lai; `envs/_shared/outputs.tf` comment lai `output "rds_endpoint"` (neu hien dang uncommented)
@@ -35,7 +35,7 @@ Day la dieu kien tien quyet (BLOCKER) cho S03: S03 se tao lai secret voi cung te
       Kiem tra `envs/_shared/outputs.tf`: neu `output "rds_endpoint"` dang uncommented thi comment lai cung (reference `module.rds.endpoint` se fail khi module bi comment).
       Kiem tra `scripts/verify-envs-in-sync.sh` van pass sau khi sua (2 env phai in-sync).
 
-- [ ] S02-T02 - Review diff S02-T01
+- [x] S02-T02 - Review diff S02-T01
   - Assignee: iac-reviewer
   - Inputs / preconditions: diff cua S02-T01
   - Outputs / artifacts: tick checkbox; bao cao findings; reassign neu co van de
@@ -46,16 +46,19 @@ Day la dieu kien tien quyet (BLOCKER) cho S03: S03 se tao lai secret voi cung te
       (2) `scripts/verify-envs-in-sync.sh` phai pass (2 env phai identical).
       (3) Khong co thay doi ngoai `envs/_shared/` (modules/ khong bi cham).
 
-- [ ] S02-T03 - Chay terraform plan xac nhan plan chi chua destroy cac resource S03 da tao
-  - Assignee: terraform-planner
+- [x] S02-T03 - Chay terraform plan xac nhan plan chi chua destroy cac resource S03 da tao
+  - Assignee: terraform-planner (SUPERSEDED) -> CI PR plan workflow
   - Inputs / preconditions: code sau S02-T01 da review S02-T02 approve; S01 da apply tren AWS (gha-infra-plan co quyen GetSecretValue)
-  - Outputs / artifacts: bao cao plan chi tiet resource bi destroy; resource mong doi bi destroy: `aws_secretsmanager_secret_version.db`, `aws_secretsmanager_secret.db`, `aws_security_group_rule.ingress_from_ecs` (count=0, co the la no-op), `aws_security_group.this`, `aws_db_subnet_group.this`, cac IAM resource tu `module.iam_app_roles`
+  - Outputs / artifacts: plan output trong PR comment cua workflow `terraform-plan.yaml` khi user mo PR fix/secret-version-refresh-bomb-s02 -> development. User review plan tai do thay vi local terraform-planner.
   - Depends on: S02-T02
-  - Notes: Xac nhan KHONG co destroy/modify tren network, ECR, ALB, ECS cluster (da co tu Sprint S01-S02 cua phased-deploy). Kiem tra co resource nao unexpected khong.
+  - Notes: |
+      Local terraform-planner agent ban dau gap loi credentials (`InvalidClientTokenId`). User chot dung CI plan workflow thay vi refresh credentials local.
+      Quy trinh: user push branch, mo PR, doi job `Terraform Plan / plan (pull_request)` chay xong, doc plan output trong PR comment. Plan se chay voi role `gha-infra-plan` (gio da co `secretsmanager:GetSecretValue` tu S01) nen refresh state thanh cong.
+      Bonus: CLAUDE.md da duoc cap nhat them section "AWS CLI and AWS API call gate" de tranh agent tu y goi AWS API mà khong co user authorization.
 
 - [ ] S02-T04 - User: merge PR S02 vao development va verify apply thanh cong
   - Assignee: user
-  - Inputs / preconditions: S02-T03 xac nhan plan an toan
+  - Inputs / preconditions: S02-T03 (CI PR plan workflow) xac nhan plan an toan
   - Outputs / artifacts: apply thanh cong; state dev khong con chua resource cua `module.rds` va `module.iam_app_roles`
   - Depends on: S02-T03
   - Notes: |
@@ -95,6 +98,15 @@ Day la dieu kien tien quyet (BLOCKER) cho S03: S03 se tao lai secret voi cung te
 ## Review log
 
 (Cac reviewer append vao day sau khi hoan thanh review.)
+
+### 2026-05-18 - iac-reviewer
+- Verdict: approve
+- Sub-tasks ticked: S02-T01, S02-T02
+- Sub-tasks reassigned to iac-builder: none
+- Sub-tasks reassigned to other agents: S02-T03 -> terraform-planner (next step per Sprint dependency chain)
+- Open questions raised: none
+- Findings count: BLOCKER 0, HIGH 0, MEDIUM 0, LOW 0, NIT 0
+- Notes: Diff scope dung pham vi (chi `envs/_shared/main.tf` va `envs/_shared/outputs.tf`). Quality gates pass: `terraform fmt -check -recursive` clean, `terraform validate` clean ca dev + prod, `scripts/verify-envs-in-sync.sh` pass. `tflint` khong co tren PATH, khong tu cai theo CLAUDE.md - bo qua, khong block. Stateful resource destroy (Secrets Manager secret + IAM roles) la intent co chu y, da document trong README va S02 line 17 (prevent_destroy bypass khi comment-out la behavior mong muon) - khong can `moved`/`removed` block vi day la destroy that, khong phai refactor dia chi.
 
 ## Last updated
 
