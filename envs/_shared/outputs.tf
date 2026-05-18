@@ -62,11 +62,12 @@ output "alb_dns_name" {
 #   value       = module.frontend_cdn.distribution_id
 # }
 
-output "rds_endpoint" {
-  description = "RDS endpoint"
-  value       = module.rds.endpoint
-  sensitive   = true
-}
+# S02-TEMP: commented out to destroy S03 resources, restore in S03 of fix-secret-version-refresh-bomb
+# output "rds_endpoint" {
+#   description = "RDS endpoint"
+#   value       = module.rds.endpoint
+#   sensitive   = true
+# }
 
 output "ecr_backend_url" {
   description = "ECR repository URL for the backend"
