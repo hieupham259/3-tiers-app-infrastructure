@@ -67,6 +67,13 @@ variable "master_username" {
   description = "Master username"
 }
 
+variable "master_password" {
+  type        = string
+  description = "RDS master password. Sourced from GitHub Environment Secret RDS_MASTER_PASSWORD via TF_VAR_rds_master_password at apply time. Never committed to any file."
+  sensitive   = true
+  nullable    = false
+}
+
 variable "deletion_protection" {
   type        = bool
   default     = true

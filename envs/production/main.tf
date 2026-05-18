@@ -13,6 +13,7 @@ module "stack" {
   rds_storage_gb            = var.rds_storage_gb
   rds_backup_retention_days = var.rds_backup_retention_days
   rds_deletion_protection   = var.rds_deletion_protection
+  rds_master_password       = var.rds_master_password
 
   ecs_task_cpu      = var.ecs_task_cpu
   ecs_task_memory   = var.ecs_task_memory

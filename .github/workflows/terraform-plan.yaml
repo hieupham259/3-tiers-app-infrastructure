@@ -35,6 +35,12 @@ jobs:
       ENV_DIR: ${{ github.base_ref == 'production' && 'production' || 'development' }}
       ACCOUNT_ID: ${{ github.base_ref == 'production' && vars.PROD_ACCOUNT_ID || vars.DEV_ACCOUNT_ID }}
       TF_VAR_repository: ${{ github.event.repository.name }}
+      # Placeholder for plan-only runs. The RDS master password is sensitive and is rendered as
+      # "(sensitive value)" in plan output regardless of the actual value. The real secret is only
+      # injected into terraform-apply.yaml via TF_VAR_rds_master_password from a GitHub Environment
+      # secret. PR plan runs must never receive the real value because PRs from contributors could
+      # be abused to exfiltrate it. This placeholder is never used for apply.
+      TF_VAR_rds_master_password: 'plan-placeholder-not-used-for-apply'
     defaults:
       run:
         working-directory: envs/${{ env.ENV_DIR }}
