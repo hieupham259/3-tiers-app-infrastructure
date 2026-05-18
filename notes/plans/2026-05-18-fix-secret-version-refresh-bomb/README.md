@@ -59,7 +59,7 @@ S04 (mandatory cleanup: xoa inline policy secrets-read-for-refresh)
 |-----|---------------------------------------------|-----------------|----------------|
 | S01 | Patch gha-infra-plan role                   | done            | task-planner   |
 | S02 | Destroy S03 resources                       | done            | task-planner   |
-| S03 | CI/CD Inject Secret Value (Pattern C)       | planned (v2)    | task-planner   |
+| S03 | CI/CD Inject Secret Value (Pattern C)       | done (v2)       | main-thread    |
 | S04 | Mandatory Cleanup: Revert Phase 1 policy    | planned         | task-planner   |
 
 ---
@@ -85,12 +85,12 @@ S04 (mandatory cleanup: xoa inline policy secrets-read-for-refresh)
 | Resource                                        | Action trong plan nay |
 |-------------------------------------------------|-----------------------|
 | `aws_secretsmanager_secret_version.db` (dev)    | Destroy (S02 done); KHONG tao lai (S03 v2 khong quan ly version trong Terraform) |
-| `aws_secretsmanager_secret.db` (dev)            | Destroy (S02 done) + Re-create voi ten moi `credentials` (S03); gia tri inject boi CI/CD |
-| `aws_security_group.this` (dev RDS SG)          | Destroy (S02 done) + Re-create (S03) |
-| `aws_db_subnet_group.this` (dev)                | Destroy (S02 done) + Re-create (S03) |
-| `aws_db_instance.this` (dev)                    | Chua tung ton tai trong state; se duoc tao lan dau boi S03 |
-| IAM roles `3-tiers-app-development-task*` (dev) | Destroy (S02 done) + Re-create (S03) |
-| `GhaInfraPlanRole` (CFN IAM resource)           | Update: them inline policy (S01 done), xoa inline policy (S04) |
+| `aws_secretsmanager_secret.db` (dev)            | Destroy (S02 done) + Re-create voi ten moi `credentials` (S03 done); gia tri inject boi CI/CD composite action `sync-secret-value` (S03 done) |
+| `aws_security_group.this` (dev RDS SG)          | Destroy (S02 done) + Re-create (S03 done) |
+| `aws_db_subnet_group.this` (dev)                | Destroy (S02 done) + Re-create (S03 done) |
+| `aws_db_instance.this` (dev)                    | Chua tung ton tai trong state; da duoc tao lan dau boi S03 (status `available`) |
+| IAM roles `3-tiers-app-development-task*` (dev) | Destroy (S02 done) + Re-create (S03 done) |
+| `GhaInfraPlanRole` (CFN IAM resource)           | Update: them inline policy (S01 done), xoa inline policy (S04 mandatory cleanup) |
 
 ---
 
@@ -102,6 +102,34 @@ Khong con cau hoi mo. Kien truc Pattern C da duoc chot voi user truoc khi viet p
 
 ## Ngoai pham vi
 
-- Sua loi `allocated_storage` < 20GB: van de nay da duoc fix o commit `9ff2855` (revert `rds_storage_gb` ve 20 trong `envs/development/terraform.tfvars`). Ca 2 env deu co `rds_storage_gb` >= 20 (dev=20, prod=100). Khong thuoc Sprint nay.
+- Sua loi `allocated_storage` < 20GB: van de nay da duoc fix trong S03 v2 (commit `087d81c` qua PR #23 bao gom fix `rds_storage_gb` 15 -> 20 trong `envs/development/terraform.tfvars`). Ca 2 env hien deu co `rds_storage_gb` >= 20 (dev=20, prod=100).
 - Chinh sua cac module khac (ecs_service, frontend_cdn, observability): thuoc Sprint S04 cua ke hoach phased-deploy, khong lien quan den ke hoach fix bomb nay.
 - Nang cap terraform hay provider version: da du dieu kien (Terraform 1.13.3, AWS provider 5.100.0).
+
+---
+
+## Trang thai sau S03 (2026-05-18)
+
+S01, S02, S03 da hoan thanh. Apply tren `development` thanh cong sau khi gop 3 PR:
+
+| PR | Commit | Noi dung |
+|----|--------|----------|
+| #22 | `efa4699` | S02: comment out module rds + iam_app_roles de destroy |
+| #23 | `087d81c` | S03 v2: refactor cicd-inject (kien truc Pattern C) + fix rds_storage_gb + hotfix plan workflow placeholder |
+| #24 | `3b114ca` | S03 v2 hotfix #2: hardcode secret name trong terraform-apply.yaml, bo `terraform output` dependency |
+
+Trang thai AWS sau apply S03 v2:
+
+- RDS instance `development-postgres`: `available`
+- Secret `/3-tiers-app/development/rds/credentials`: ton tai, co value (JSON 4 field) duoc inject boi composite action `sync-secret-value` post-apply
+- Secret cu `/3-tiers-app/development/rds/master`: van scheduled deletion (~2026-05-25 tu xoa)
+- IAM task roles `3-tiers-app-development-task*`: ton tai
+- Bomb defused: `aws_secretsmanager_secret_version` KHONG con trong tfstate; plan refresh chi goi `DescribeSecret` (co trong ReadOnlyAccess)
+
+Buoc tiep theo: S04 (mandatory cleanup) - go inline policy `secrets-read-for-refresh` khoi `gha-infra-plan` vi khong con can `GetSecretValue` cho refresh nua.
+
+---
+
+## Last updated
+
+2026-05-18 by main-thread (S03 closed; apply success on development; 3 PR merged: #22, #23, #24)

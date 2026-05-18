@@ -38,14 +38,14 @@ Xoa inline policy `secrets-read-for-refresh` khoi `GhaInfraPlanRole` trong `boot
 
 ## Sub-tasks
 
-- [ ] S04-T01 - Xoa inline policy `secrets-read-for-refresh` khoi `GhaInfraPlanRole` trong `bootstrap/03-github-oidc-roles.yaml`
+- [x] S04-T01 - Xoa inline policy `secrets-read-for-refresh` khoi `GhaInfraPlanRole` trong `bootstrap/03-github-oidc-roles.yaml`
   - Assignee: iac-builder
   - Inputs / preconditions: `bootstrap/03-github-oidc-roles.yaml` hien tai co inline policy `secrets-read-for-refresh` (duoc them o S01)
   - Outputs / artifacts: `bootstrap/03-github-oidc-roles.yaml` voi toan bo block `secrets-read-for-refresh` duoc xoa khoi list `Policies` cua `GhaInfraPlanRole`; list `Policies` chi con 1 item la `tfstate-rw` (tra ve trang thai truoc S01 chinh xac)
   - Depends on: none
   - Notes: Khong sua bat ky policy nao khac. Khong cham `GhaInfraApplyRole`, `GhaBackendDeployRole`, `GhaFrontendDeployRole`, hay bat ky resource nao khac. File sau khi sua phai co `GhaInfraPlanRole.Properties.Policies` chi chua 1 phan tu (`tfstate-rw`).
 
-- [ ] S04-T02 - Review diff S04-T01
+- [x] S04-T02 - Review diff S04-T01
   - Assignee: iac-reviewer
   - Inputs / preconditions: diff cua S04-T01
   - Outputs / artifacts: tick checkbox; bao cao findings co severity tag; reassign neu co van de
@@ -93,6 +93,15 @@ Xoa inline policy `secrets-read-for-refresh` khoi `GhaInfraPlanRole` trong `boot
 ## Review log
 
 (Cac reviewer append vao day sau khi hoan thanh review.)
+
+### 2026-05-18 - iac-reviewer
+- Verdict: approve
+- Sub-tasks ticked: S04-T01, S04-T02
+- Sub-tasks reassigned to iac-builder: none
+- Sub-tasks reassigned to other agents: none
+- Open questions raised: none
+- Findings count: BLOCKER 0, HIGH 0, MEDIUM 0, LOW 0, NIT 0
+- Notes: Diff la pure deletion (11 dong, 0 dong them), chinh xac block inline policy `secrets-read-for-refresh` (PolicyName + PolicyDocument + Statement) cong 4 dong comment giai thich. Grep `secrets-read-for-refresh|GetSecretValue` tren file sau khi sua tra ve 0 match. `GhaInfraPlanRole.Properties.Policies` con dung 1 phan tu `tfstate-rw` voi 3 Effect Allow nguyen ven (S3 ListBucket, S3 Get/Put/DeleteObject, KMS Encrypt/Decrypt/GenerateDataKey/DescribeKey). Managed policy `ReadOnlyAccess` van con (line 40) nen `DescribeSecret` cho refresh metadata `aws_secretsmanager_secret` van hoat dong. Cac role khac (`GhaInfraApplyRole`, `GhaBackendDeployRole`, `GhaFrontendDeployRole`), Parameters va Outputs khong bi cham (xac nhan qua `git diff --stat` = 11 deletions / 0 insertions). Reversibility OK: revert chi can checkout file tu `origin/development`.
 
 ---
 
