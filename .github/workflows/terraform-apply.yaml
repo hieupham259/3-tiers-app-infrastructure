@@ -69,33 +69,23 @@ jobs:
       - name: Terraform apply
         run: terraform apply -no-color -input=false tfplan
 
-      - name: Resolve RDS secret ARN and build desired value
-        id: rds_secret
-        working-directory: envs/${{ env.ENV_DIR }}
+      - name: Build RDS credentials JSON
+        id: rds_creds
         env:
-          TF_VAR_rds_master_password: ${{ secrets.RDS_MASTER_PASSWORD }}
+          PW: ${{ secrets.RDS_MASTER_PASSWORD }}
         run: |
           set -euo pipefail
-          arn=$(terraform output -raw rds_secret_arn)
-          if [ -z "$arn" ]; then
-            echo "ERROR: terraform output rds_secret_arn is empty" >&2
-            exit 1
-          fi
-          # Build desired JSON safely with jq (escapes special chars in password).
-          desired=$(jq -nc \
-            --arg pw "$TF_VAR_rds_master_password" \
+          json=$(jq -nc --arg pw "$PW" \
             '{username:"app_admin",password:$pw,dbname:"appdb",port:5432}')
-          # Mask the value so it never appears in workflow log if accidentally echoed.
-          echo "::add-mask::$desired"
+          echo "::add-mask::$json"
           {
-            echo "arn=$arn"
-            echo 'desired<<SECRET_EOF'
-            echo "$desired"
+            echo 'json<<SECRET_EOF'
+            echo "$json"
             echo SECRET_EOF
           } >> "$GITHUB_OUTPUT"
 
       - name: Sync RDS secret value
         uses: ./.github/actions/sync-secret-value
         with:
-          secret-arn: ${{ steps.rds_secret.outputs.arn }}
-          secret-string: ${{ steps.rds_secret.outputs.desired }}
+          secret-arn: /3-tiers-app/${{ env.ENV_DIR }}/rds/credentials
+          secret-string: ${{ steps.rds_creds.outputs.json }}
