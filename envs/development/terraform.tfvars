@@ -13,9 +13,9 @@ vpc_cidr = "10.10.0.0/16"
 # existing_public_subnet_ids  = ["subnet-ddd", "subnet-eee", "subnet-fff"]
 
 # --- RDS (development: small instance, single-AZ, short retention) ---
-rds_instance_class        = "db.t4g.small"
+rds_instance_class        = "db.t3.micro"
 rds_multi_az              = false
-rds_storage_gb            = 20
+rds_storage_gb            = 15
 rds_backup_retention_days = 7
 rds_deletion_protection   = false
 
