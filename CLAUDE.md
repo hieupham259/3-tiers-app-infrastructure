@@ -161,6 +161,44 @@ Rationale: commits and pushes mutate the user's authoritative history and trigge
 
 This rule overrides any inferred convenience. Even if a task feels "obviously complete" or the user has previously approved similar commits, do not commit or push without a fresh instruction in the current turn.
 
+## Software install, download, and upload gate
+
+The main thread and every agent are forbidden from downloading, installing, uninstalling, upgrading, or uploading any software, binary, package, container image, browser extension, system service, or kernel/driver module without an explicit, in-turn user instruction for that specific operation.
+
+Forbidden without explicit user permission:
+
+- Downloading any executable, archive (`.zip`, `.tar.gz`, `.msi`, `.exe`, `.dmg`, `.deb`, `.rpm`, `.pkg`), shell script, or binary blob from any URL (including official vendor pages like releases.hashicorp.com, github.com/releases, npmjs.com tarballs).
+- Installing or upgrading software via any package manager: `choco`, `scoop`, `winget`, `apt`, `apt-get`, `yum`, `dnf`, `brew`, `pacman`, `pip install`, `pipx install`, `npm install -g`, `pnpm add -g`, `yarn global add`, `gem install`, `cargo install`, `go install`, `dotnet tool install`, `uv tool install`, `asdf install`, `tfenv install`, `nvm install`, `rustup`, `pyenv install`.
+- Installing project dependencies that mutate lockfiles or fetch new packages: `npm install`, `pnpm install`, `yarn install`, `pip install -r`, `poetry add`, `cargo add`, `go get`, `bundle install`, `composer install`, `mvn install`, `gradle build` (when it downloads new deps). Note: re-running these to restore a previously locked state may be allowed if the user has scoped it, but adding or upgrading deps always requires permission.
+- Pulling Docker / OCI images (`docker pull`, `podman pull`, `nerdctl pull`, `helm pull`, `crane pull`) or running images that implicitly pull (`docker run <new-image>`).
+- Installing VS Code / JetBrains / browser extensions or MCP servers from the network.
+- Uploading anything to a third-party service: pastebins, diagram renderers, gists, transfer.sh, file.io, S3 buckets outside this repo's IaC, any "share" or "publish" endpoint. This includes uploading code, logs, screenshots, or config snippets for "rendering" or "analysis".
+- Running install scripts piped from the network: `curl ... | sh`, `iwr ... | iex`, `wget -O- | bash`, etc. - regardless of the source.
+
+Explicitly allowed (safe to run autonomously when needed for a task):
+
+- Reading from the network: HTTP GET via `WebFetch`, `curl`, `Invoke-WebRequest` to inspect a page or fetch JSON / docs into the conversation (not to disk as an executable).
+- Re-running a previously-installed tool already on `PATH` (running `terraform`, `tflint`, `act`, `docker`, etc. that the user has already installed).
+- Reading local package metadata (`npm ls`, `pip list`, `terraform version`, `docker images`) without fetching anything.
+
+Workflow when a task needs a tool that is not installed or is the wrong version:
+
+1. Stop. Do not download, install, or upgrade.
+2. Report to the user: which tool is missing or out of date, the exact version required, and the recommended install command (so the user can run it themselves).
+3. Wait for the user to install it (or to explicitly authorize the install in the current turn).
+4. Permission is scoped to the operation and the turn. "Install terraform 1.13.3" does not authorize installing other tools or other versions later.
+
+Workaround attempts that are NOT permitted:
+
+- Downloading a portable binary to a temp directory to "avoid touching the system install".
+- Building from source after `git clone`-ing an upstream repo.
+- Using a language runtime's package manager (`pip`, `npm`, `cargo`) to fetch a tool "just for this task".
+- Pulling a container image to run the tool inside Docker without the user authorizing the image pull.
+
+Rationale: software installs mutate the user's machine in ways that are hard to audit (PATH changes, system services, scheduled tasks, certificate stores), can introduce supply-chain risk, and may conflict with the user's existing toolchain (tfenv, asdf, corporate-managed installs). Uploads can leak proprietary code or secrets to third-party services that cache or index the content. The user is the gatekeeper for what enters the machine and what leaves it.
+
+This rule overrides any inferred convenience. Even if a quality gate fails because a tool is missing, do not install the tool - report the gap and let the user decide.
+
 ## Out-of-scope safety
 
 - No `terraform apply` from the main thread or any agent. Apply only happens through the GitHub Actions pipeline.

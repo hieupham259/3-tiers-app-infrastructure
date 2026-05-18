@@ -27,13 +27,13 @@ variable "engine_version" {
 
 variable "instance_class" {
   type        = string
-  default     = "db.t4g.small"
-  description = "Instance class (development: db.t4g.small, production: db.r6g.large)"
+  default     = "db.t3.micro"
+  description = "Instance class (development: db.t3.micro, production: db.r6g.large)"
 }
 
 variable "allocated_storage" {
   type        = number
-  default     = 20
+  default     = 15
   description = "Storage GB"
 }
 
