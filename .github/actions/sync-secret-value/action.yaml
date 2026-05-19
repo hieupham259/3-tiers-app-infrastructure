@@ -1,0 +1,32 @@
+name: Sync Secrets Manager secret value
+description: >-
+  Idempotent sync of an AWS Secrets Manager secret value. Reads the current
+  AWSCURRENT value via GetSecretValue. If it matches the desired value (or
+  if the secret has no version yet), no-op. Otherwise calls PutSecretValue
+  to create a new version. Avoids version sprawl from unconditional writes
+  (AWS recommends no more than one update per 10 minutes per secret).
+
+inputs:
+  secret-arn:
+    description: >-
+      ARN or name of the Secrets Manager secret to sync. Required.
+    required: true
+  secret-string:
+    description: >-
+      Desired SecretString value as a single-line JSON string. Caller must
+      JSON-encode safely (use jq -nc) to handle special characters in
+      password fields. Caller should also call ::add-mask:: on this value
+      before passing it in, so the workflow log does not leak the value.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run sync
+      shell: bash
+      env:
+        SECRET_ARN: ${{ inputs.secret-arn }}
+        DESIRED: ${{ inputs.secret-string }}
+      run: |
+        chmod +x "$GITHUB_ACTION_PATH/sync.sh"
+        "$GITHUB_ACTION_PATH/sync.sh"

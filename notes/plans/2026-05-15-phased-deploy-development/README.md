@@ -64,8 +64,8 @@ Apply KHONG chay tu local. Theo CLAUDE.md, apply chi xay ra qua GitHub Actions p
 | S01 | deploy-full-networking | done (merged to development 2026-05-16) | main thread |
 | S02 | uncomment-ecr-alb-ecs-cluster (split: S02a ECR / S02b ALB / S02c ECS cluster) | done (S02a + S02b + S02c deployed tren `development` 2026-05-17); cho replicate `production` | main thread |
 | S02d | fix-alb-http-forward (fix HTTP listener forward to TG when no ACM cert) | done tren `development` (merged 2026-05-17, apply PASS); cho replicate `production` | main thread |
-| S03 | uncomment-rds-iam | planned | task-planner |
-| S04 | uncomment-ecs-service-cdn-observability | planned | task-planner |
+| S03 | uncomment-rds-iam | done tren `development` 2026-05-18 qua plan rieng `2026-05-18-fix-secret-version-refresh-bomb` (PR #22, #23, #24, #25 sau khi gap bom GetSecretValue + apply fail rds_storage_gb < 20GB); thiet ke secret thay doi: CI/CD inject value tu GitHub Env Secret thay vi Terraform random_password; cho replicate `production` | main thread |
+| S04 | uncomment-ecs-service-cdn-observability | done tren `development` 2026-05-19 (PR #28 merged, commit `46eea80`, apply PASS; S04-T05 confirmed boi iac-reviewer - envs/_shared sach so voi baseline pre-S01); cho replicate `production` | iac-reviewer |
 
 ## Chuoi phu thuoc giua Sprint
 
@@ -92,6 +92,10 @@ Luong lam viec:
 - Khong co rang buoc thu tu cung-nhip giua hai env; `development` co the di truoc `production` bao nhieu giai doan tuy y.
 
 ## Last updated
+
+2026-05-19 by iac-reviewer - DONG TOAN BO PLAN: S04-T05 confirmed. So sanh `envs/_shared/main.tf` va `envs/_shared/outputs.tf` voi baseline pre-S01 (commit `0837c87`) khong phat hien diff ngoai du kien - tat ca diff con lai deu thuoc cac plan khac (tag `Repository`, ECR suffix `-${var.environment}`, `master_password` cho RDS, output `rds_secret_arn`, ECS public subnet + assign_public_ip cua cost-opt refactor). Khong con comment rac `S03/S04/temporary/phased`, khong con module/resource/output block bi comment. Quality gates local-only PASS (fmt, verify-envs-in-sync). Plan `2026-05-15-phased-deploy-development` chinh thuc dong tren tat ca 4 Sprint. Cong viec con lai (replicate sang `production` qua PR base=`production`, head=`feature/phased-deploy-s04-full-stack`) la viec bo sung cua user, nam ngoai pham vi dong plan nay.
+
+2026-05-19 by main thread - cap nhat status S04 sang done tren `development`: PR #28 (feature/phased-deploy-s04-full-stack -> development) merged luc 2026-05-19 17:23 +0700 (commit `46eea80`), `terraform-apply.yaml` PASS. Stack day du 9 module da deploy tren account development: ecs_service, frontend_cdn, observability them moi; ingress_security_group_ids cua module rds va frontend_bucket_arn cua module iam_app_roles phuc hoi ve gia tri thuc. Con cho S04-T05 (iac-reviewer xac nhan envs/_shared/* sach so voi pre-S01) va replicate sang production. Sau S04-T05, toan bo phased-deploy plan dong.
 
 2026-05-17 by main thread - cap nhat status S02 sang done tren `development`: sub-sprint S02c (ECS cluster + capacity providers FARGATE/FARGATE_SPOT + SSM `ecs_cluster_name`) deploy thanh cong, 3/0/0 plan khop expected. Toan bo S02 (ECR + ALB + ECS cluster) hoan tat tren `development` account; san sang cho S03 hoac replicate `production`.
 

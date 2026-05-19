@@ -32,6 +32,7 @@ jobs:
       ENV_DIR: ${{ github.ref == 'refs/heads/production' && 'production' || 'development' }}
       ACCOUNT_ID: ${{ github.ref == 'refs/heads/production' && vars.PROD_ACCOUNT_ID || vars.DEV_ACCOUNT_ID }}
       TF_VAR_repository: ${{ github.event.repository.name }}
+      TF_VAR_rds_master_password: ${{ secrets.RDS_MASTER_PASSWORD }}
     defaults:
       run:
         working-directory: envs/${{ env.ENV_DIR }}
@@ -67,3 +68,24 @@ jobs:
 
       - name: Terraform apply
         run: terraform apply -no-color -input=false tfplan
+
+      - name: Build RDS credentials JSON
+        id: rds_creds
+        env:
+          PW: ${{ secrets.RDS_MASTER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          json=$(jq -nc --arg pw "$PW" \
+            '{username:"app_admin",password:$pw,dbname:"appdb",port:5432}')
+          echo "::add-mask::$json"
+          {
+            echo 'json<<SECRET_EOF'
+            echo "$json"
+            echo SECRET_EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Sync RDS secret value
+        uses: ./.github/actions/sync-secret-value
+        with:
+          secret-arn: /3-tiers-app/${{ env.ENV_DIR }}/rds/credentials
+          secret-string: ${{ steps.rds_creds.outputs.json }}

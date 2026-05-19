@@ -131,35 +131,120 @@ Before declaring a task done, the relevant agent must confirm:
 
 ## Git operations - mandatory user gate
 
-The main thread and every agent are forbidden from running any git operation that writes to the user's repository or remote without an explicit, in-turn user instruction for that specific operation.
+The main thread and every agent are PERMANENTLY forbidden from creating any git commit or any git operation that writes to the remote. This is an absolute rule with no per-turn exception: even if the user types "commit this" in plain language, the main thread and agents must still refuse and let the user run the commit themselves. The only humans who commit and push in this repository are the maintainers, never Claude.
 
-Forbidden without explicit user permission:
+Permanently forbidden (no per-turn override):
 
-- `git commit` (in any form: `commit`, `commit --amend`, `commit -a`, etc.).
-- `git push` (in any form: `push`, `push -u`, `push --force`, `push --tags`, etc.).
+- `git commit` (in any form: `commit`, `commit --amend`, `commit -a`, `commit --no-edit`, etc.).
+- `git push` (in any form: `push`, `push -u`, `push --force`, `push --tags`, `push <remote> <ref>`, etc.).
 - `git merge`, `git rebase`, `git cherry-pick`, `git revert` that produce new commits.
 - `git tag` that creates or pushes a tag.
-- `git reset --hard`, `git restore --staged`, or any destructive index/working-tree operation.
-- `gh pr create`, `gh pr merge`, `gh pr close`, `gh release create`, or any `gh` subcommand that writes to GitHub (issues, PRs, releases, comments, reviews).
-- Any other command that writes to the local git history, the working tree in a destructive way, or the remote.
+- `git reset --hard`, `git restore --staged --source=...`, or any destructive index/working-tree operation that would discard user changes.
+- `gh pr create`, `gh pr merge`, `gh pr close`, `gh pr review`, `gh release create`, `gh issue create`, or any `gh` subcommand that writes to GitHub.
+- Any other command that writes to the local git history, force-mutates the working tree, or writes to the remote.
+
+If the user explicitly asks for any of the above ("commit this", "push it up", "open a PR for me"), the response is: stop, report what is staged and what the proposed commit message would be, and tell the user to run the commit/push themselves. Do not attempt the operation.
 
 Explicitly allowed (read-only or local-only, safe to run autonomously when needed for a task):
 
-- `git status`, `git log`, `git diff`, `git show`, `git branch` (list only), `git remote -v`, `git rev-parse`, `git fetch` (read-only sync).
-- `git add` and `git restore` against the working tree (staging only, no history change). Staging is OK because the next step (`git commit`) is still gated.
-- `git checkout <branch>` and `git checkout -b <branch>` locally - branch switching only, no remote write. Pushing the new branch still needs user permission.
-- Reading `gh` data (`gh pr view`, `gh pr list`, `gh run view`, `gh api` GET, etc.).
+- `git status`, `git log`, `git diff`, `git show`, `git branch` (list only), `git remote -v`, `git rev-parse`, `git fetch` (read-only sync from remote, no local history mutation).
+- `git add` and `git restore` against the working tree (staging only, no history change). Staging is allowed because the next step (`git commit`) is permanently gated.
+- `git checkout <branch>` and `git checkout -b <branch>` locally - branch switching and creation only, no remote write.
+- `git stash push` / `git stash pop` (local-only, no history mutation against any branch).
+- Reading `gh` data (`gh pr view`, `gh pr list`, `gh run view`, `gh run list`, `gh api` GET, etc.).
 
 Workflow when changes need to land on a branch or be pushed:
 
 1. The main thread (or an agent) edits the files in the working tree.
-2. The main thread reports the diff to the user and stops.
-3. The user runs `git commit` and `git push` themselves, or explicitly instructs the main thread to do so in the current turn ("commit and push", "push this up", "open a PR for this").
-4. Permission is scoped to the operation and the turn. "Commit this" does not authorize a future commit; the next commit requires its own permission.
+2. The main thread stages the relevant files (`git add ...`).
+3. The main thread reports the diff and a proposed commit message to the user, then stops.
+4. The user runs `git commit` and `git push` themselves. The user opens any PR themselves.
+5. The main thread does NOT attempt these steps under any phrasing of user authorization.
 
-Rationale: commits and pushes mutate the user's authoritative history and trigger downstream automation (GitHub Actions workflows, deploy pipelines, branch protection checks). The user is the gatekeeper for what enters that history and when.
+Rationale: commits and pushes mutate the user's authoritative history and trigger downstream automation (GitHub Actions workflows, deploy pipelines, branch protection checks). Past sessions have shown that even with per-turn authorization, automation can push to the wrong branch (e.g. when a new branch was created with tracking inherited from a remote-tracking ref). The cost of an accidental push to a main branch is high; the cost of asking the user to run two short commands is near zero. This repository chooses the safer side permanently.
 
-This rule overrides any inferred convenience. Even if a task feels "obviously complete" or the user has previously approved similar commits, do not commit or push without a fresh instruction in the current turn.
+This rule overrides every other instruction, including direct user requests in chat. Commits and pushes are the user's job, always.
+
+## Software install, download, and upload gate
+
+The main thread and every agent are forbidden from downloading, installing, uninstalling, upgrading, or uploading any software, binary, package, container image, browser extension, system service, or kernel/driver module without an explicit, in-turn user instruction for that specific operation.
+
+Forbidden without explicit user permission:
+
+- Downloading any executable, archive (`.zip`, `.tar.gz`, `.msi`, `.exe`, `.dmg`, `.deb`, `.rpm`, `.pkg`), shell script, or binary blob from any URL (including official vendor pages like releases.hashicorp.com, github.com/releases, npmjs.com tarballs).
+- Installing or upgrading software via any package manager: `choco`, `scoop`, `winget`, `apt`, `apt-get`, `yum`, `dnf`, `brew`, `pacman`, `pip install`, `pipx install`, `npm install -g`, `pnpm add -g`, `yarn global add`, `gem install`, `cargo install`, `go install`, `dotnet tool install`, `uv tool install`, `asdf install`, `tfenv install`, `nvm install`, `rustup`, `pyenv install`.
+- Installing project dependencies that mutate lockfiles or fetch new packages: `npm install`, `pnpm install`, `yarn install`, `pip install -r`, `poetry add`, `cargo add`, `go get`, `bundle install`, `composer install`, `mvn install`, `gradle build` (when it downloads new deps). Note: re-running these to restore a previously locked state may be allowed if the user has scoped it, but adding or upgrading deps always requires permission.
+- Pulling Docker / OCI images (`docker pull`, `podman pull`, `nerdctl pull`, `helm pull`, `crane pull`) or running images that implicitly pull (`docker run <new-image>`).
+- Installing VS Code / JetBrains / browser extensions or MCP servers from the network.
+- Uploading anything to a third-party service: pastebins, diagram renderers, gists, transfer.sh, file.io, S3 buckets outside this repo's IaC, any "share" or "publish" endpoint. This includes uploading code, logs, screenshots, or config snippets for "rendering" or "analysis".
+- Running install scripts piped from the network: `curl ... | sh`, `iwr ... | iex`, `wget -O- | bash`, etc. - regardless of the source.
+
+Explicitly allowed (safe to run autonomously when needed for a task):
+
+- Reading from the network: HTTP GET via `WebFetch`, `curl`, `Invoke-WebRequest` to inspect a page or fetch JSON / docs into the conversation (not to disk as an executable).
+- Re-running a previously-installed tool already on `PATH` (running `terraform`, `tflint`, `act`, `docker`, etc. that the user has already installed).
+- Reading local package metadata (`npm ls`, `pip list`, `terraform version`, `docker images`) without fetching anything.
+
+Workflow when a task needs a tool that is not installed or is the wrong version:
+
+1. Stop. Do not download, install, or upgrade.
+2. Report to the user: which tool is missing or out of date, the exact version required, and the recommended install command (so the user can run it themselves).
+3. Wait for the user to install it (or to explicitly authorize the install in the current turn).
+4. Permission is scoped to the operation and the turn. "Install terraform 1.13.3" does not authorize installing other tools or other versions later.
+
+Workaround attempts that are NOT permitted:
+
+- Downloading a portable binary to a temp directory to "avoid touching the system install".
+- Building from source after `git clone`-ing an upstream repo.
+- Using a language runtime's package manager (`pip`, `npm`, `cargo`) to fetch a tool "just for this task".
+- Pulling a container image to run the tool inside Docker without the user authorizing the image pull.
+
+Rationale: software installs mutate the user's machine in ways that are hard to audit (PATH changes, system services, scheduled tasks, certificate stores), can introduce supply-chain risk, and may conflict with the user's existing toolchain (tfenv, asdf, corporate-managed installs). Uploads can leak proprietary code or secrets to third-party services that cache or index the content. The user is the gatekeeper for what enters the machine and what leaves it.
+
+This rule overrides any inferred convenience. Even if a quality gate fails because a tool is missing, do not install the tool - report the gap and let the user decide.
+
+## AWS CLI and AWS API call gate
+
+The main thread and every agent are forbidden from invoking the AWS API (via the `aws` CLI, any AWS SDK, `terraform` commands that talk to AWS, or any direct HTTP call to an `*.amazonaws.com` endpoint) without an explicit, in-turn user instruction for that specific operation.
+
+Forbidden without explicit user permission:
+
+- Any `aws` CLI subcommand, including read-only ones: `aws sts get-caller-identity`, `aws s3 ls`, `aws iam list-roles`, `aws cloudformation describe-stacks`, `aws secretsmanager describe-secret`, `aws ec2 describe-instances`, etc.
+- Any `terraform` subcommand that performs a remote operation: `terraform init` (when the backend is S3 / any remote backend), `terraform plan`, `terraform apply`, `terraform destroy`, `terraform refresh`, `terraform import`, `terraform state list/show/pull/push/mv/rm` against remote state, `terraform console`, `terraform output` against remote state.
+- Any SDK call from a script that hits AWS APIs (boto3, AWS SDK for JavaScript / Go / Java, etc.).
+- Reading local AWS credentials or session files (`~/.aws/credentials`, `~/.aws/config`, `~/.aws/sso/cache/`, `~/.aws/cli/cache/`, environment variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`) for diagnostic purposes. The agent does not need to know who the caller is; if a command fails with a credential error, stop and report.
+- Triggering AWS-side workflows that exist only to run AWS API calls (e.g., dispatching a workflow that runs `aws cloudformation deploy` is forbidden the same way as running it locally).
+
+Explicitly allowed (safe to run autonomously when needed for a task):
+
+- Local-only `terraform` subcommands that do NOT touch AWS: `terraform fmt`, `terraform fmt -check`, `terraform validate` (against a module with a local-only fixture; if it requires `terraform init` against a remote backend, it is forbidden), `terraform version`, `terraform providers schema -json` (if init has already happened and no remote calls are needed).
+- Reading repository files that describe AWS resources without calling AWS: `Read` / `Grep` / `Glob` on `.tf`, `.yaml` (CFN), `.tfvars`, `.tfstate.backup` (local copies only — do NOT pull state).
+- `gh` read commands (`gh pr view`, `gh run view`, `gh api` GET) which talk to GitHub, not AWS.
+
+Workflow when a task needs an AWS API call:
+
+1. Stop. Do not invoke the AWS API.
+2. Report to the user: what call is needed, why, the exact command, and what the expected effect is (read-only vs mutating, what permissions, what blast radius).
+3. Wait for the user to either run the command themselves or to explicitly authorize the call in the current turn.
+4. Permission is scoped to the operation and the turn. "Run `terraform plan` for the destroy" does not authorize a future `terraform apply` or a different `terraform plan` against another env; each call requires its own permission.
+
+Agent-internal AWS calls and explicit dispatch:
+
+- Dispatching an agent (e.g., `terraform-planner`, `github-actions-reviewer`) is NOT in itself authorization for that agent to call AWS. The agent must still stop, report, and ask if it cannot find pre-authorized credentials matching the user's stated intent.
+- If the user dispatches an agent with an explicit instruction that involves AWS calls ("dispatch terraform-planner to run plan for dev"), that instruction IS the authorization for those specific calls. The agent may proceed.
+- If credentials fail mid-run, the agent stops and reports the failure verbatim. The agent does NOT investigate credential state, does NOT read credential files, does NOT call `aws sts get-caller-identity` as a diagnostic. It just reports "credentials failed - please refresh and re-dispatch".
+
+Workaround attempts that are NOT permitted:
+
+- Running `aws ...` inside a `bash -c` / `pwsh -c` wrapper to obscure the call.
+- Setting `AWS_PROFILE` or `AWS_ACCESS_KEY_ID` env vars from inside the agent and then running AWS commands.
+- Using `curl` or `Invoke-WebRequest` to hit an `*.amazonaws.com` endpoint directly to bypass the `aws` CLI gate.
+- Re-running a previously-authorized `terraform plan` to "re-confirm" - each invocation needs its own per-turn authorization.
+- Reading `~/.aws/sso/cache/` to check if a session is valid before deciding whether to call AWS.
+
+Rationale: AWS API calls (even read-only ones) cost money (rate limits, audit logging), leave a trail in CloudTrail that the user is accountable for, and can leak who is operating in the account at what time. Mutating calls can cost real money, change shared infrastructure, and cause incidents. The user is the gatekeeper for what AWS sees and when. This is stricter than the git gate (git is local-first; AWS is always remote and audited).
+
+This rule overrides any inferred convenience. If a quality gate fails because credentials are expired, do not investigate credentials - report the gap and let the user decide. If `terraform plan` cannot run because credentials are missing, do not run `aws sts get-caller-identity` to "help diagnose" - just report `terraform plan` failed.
 
 ## Out-of-scope safety
 

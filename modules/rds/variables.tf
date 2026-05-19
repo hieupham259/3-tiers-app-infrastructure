@@ -27,13 +27,13 @@ variable "engine_version" {
 
 variable "instance_class" {
   type        = string
-  default     = "db.t4g.small"
-  description = "Instance class (development: db.t4g.small, production: db.r6g.large)"
+  default     = "db.t3.micro"
+  description = "Instance class (development: db.t3.micro, production: db.r6g.large)"
 }
 
 variable "allocated_storage" {
   type        = number
-  default     = 20
+  default     = 15
   description = "Storage GB"
 }
 
@@ -65,6 +65,13 @@ variable "master_username" {
   type        = string
   default     = "app_admin"
   description = "Master username"
+}
+
+variable "master_password" {
+  type        = string
+  description = "RDS master password. Sourced from GitHub Environment Secret RDS_MASTER_PASSWORD via TF_VAR_rds_master_password at apply time. Never committed to any file."
+  sensitive   = true
+  nullable    = false
 }
 
 variable "deletion_protection" {

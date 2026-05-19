@@ -75,42 +75,42 @@ Truoc khi un-comment va chinh sua, iac-builder can kiem tra:
 
 ## Sub-tasks
 
-- [ ] S03-T01 - Kiem tra `modules/iam-app-roles/variables.tf` va `modules/rds/main.tf` de xac nhan kha nang tuong thich voi gia tri tam thoi
+- [x] S03-T01 - Kiem tra `modules/iam-app-roles/variables.tf` va `modules/rds/main.tf` de xac nhan kha nang tuong thich voi gia tri tam thoi
   - Assignee: iac-builder
   - Inputs / preconditions: `modules/iam-app-roles/variables.tf`, `modules/rds/main.tf`
   - Outputs / artifacts: bao cao ngan: (1) bien `frontend_bucket_arn` co nullable/default null chua; (2) `aws_db_instance` co lifecycle prevent_destroy chua
   - Depends on: S02-T04 (giai doan truoc da deploy xong)
   - Notes: Neu `frontend_bucket_arn` khong co kha nang nhan null, them `nullable = true` hoac `default = null` vao variables.tf cua module iam-app-roles - day la chinh sua can thiet cho phased deploy va an toan
 
-- [ ] S03-T02 - Them lifecycle { prevent_destroy = true } cho aws_db_instance (va aws_secretsmanager_secret neu chua co) trong modules/rds/main.tf
+- [x] S03-T02 - Them lifecycle { prevent_destroy = true } cho aws_db_instance (va aws_secretsmanager_secret neu chua co) trong modules/rds/main.tf
   - Assignee: iac-builder
   - Inputs / preconditions: ket qua S03-T01
   - Outputs / artifacts: `modules/rds/main.tf` co lifecycle block tren db instance va secret resource
   - Depends on: S03-T01
   - Notes: Neu da co lifecycle block thi tick luon; chi them khi chua co. Day la buoc bao ve truoc khi RDS duoc tao lan dau.
 
-- [ ] S03-T03 - Un-comment module rds va iam_app_roles trong `envs/_shared/main.tf` voi gia tri tam thoi; un-comment output rds_endpoint trong `envs/_shared/outputs.tf`
+- [x] S03-T03 - Un-comment module rds va iam_app_roles trong `envs/_shared/main.tf` voi gia tri tam thoi; un-comment output rds_endpoint trong `envs/_shared/outputs.tf`
   - Assignee: iac-builder
   - Inputs / preconditions: S03-T01 va S03-T02 done; networking + ECR + ALB + ECS cluster da ton tai tren AWS
   - Outputs / artifacts: `envs/_shared/main.tf` voi 2 module duoc un-comment (co chinh sua tam thoi); `envs/_shared/outputs.tf` voi output rds_endpoint duoc un-comment
   - Depends on: S03-T02
   - Notes: Them comment ro rang `# S03: temporary empty list, restored in S04` va `# S03: temporary null, restored in S04` de iac-builder Sprint S04 biet chinh xac can phuc hoi gi. Xoa comment "PHASED-DEPLOY S01" tren cac block duoc un-comment.
 
-- [ ] S03-T04 - Review diff Sprint S03
+- [x] S03-T04 - Review diff Sprint S03
   - Assignee: iac-reviewer
   - Inputs / preconditions: diff cua S03-T01, S03-T02, S03-T03
   - Outputs / artifacts: tick cac sub-task; reassign neu co van de
   - Depends on: S03-T03
   - Notes: Kiem tra dac biet: (1) `ingress_security_group_ids = []` - RDS security group se khong cho ECS vao, intentional trong giai doan nay; (2) `frontend_bucket_arn = null` - module iam_app_roles co the khong tao IAM policy cho bucket neu null; (3) lifecycle prevent_destroy co mat tren db instance va secret; (4) cac module van comment (ecs_service, frontend_cdn, observability) khong lo ra output nao
 
-- [ ] S03-T05 - Chay terraform plan xac nhan chi tao resource rds va iam_app_roles
+- [x] S03-T05 - Chay terraform plan xac nhan chi tao resource rds va iam_app_roles
   - Assignee: terraform-planner
   - Inputs / preconditions: code sau S03-T03 da review S03-T04 approve
   - Outputs / artifacts: bao cao plan; resource mong doi: RDS instance (1) + RDS security group (1) + RDS subnet group (1) + Secrets Manager secret (1) + IAM roles (2+) + IAM policies; output rds_endpoint
   - Depends on: S03-T04
   - Notes: Khong duoc co thay doi tren networking / ECR / ALB / ECS cluster da co tu S01-S02
 
-- [ ] S03-T06 - Deploy giai doan 3 len branch development
+- [x] S03-T06 - Deploy giai doan 3 len branch development
   - Assignee: user
   - Inputs / preconditions: S03-T05 xac nhan plan an toan
   - Outputs / artifacts: RDS instance trang thai available, IAM roles ton tai trong AWS Console
@@ -134,6 +134,91 @@ Cac reviewer tick box khi verify xong.
 ## Review log
 
 (Cac reviewer append vao day sau khi hoan thanh review.)
+
+### 2026-05-17 - S03-T01 ket qua (iac-builder via main thread)
+
+- `modules/iam-app-roles/variables.tf:11-15`: bien `frontend_bucket_arn` da co `type = string`, `default = null`, `nullable` mac dinh true → an toan nhan null. Khong sua file.
+- Phat hien phu (ngoai pham vi S03): bien `frontend_bucket_arn` la dead code - khong duoc tham chieu o bat ky resource nao trong `modules/iam-app-roles/`. De xuat cleanup sau S04: hoac them IAM policy thuc su dung bien, hoac xoa bien va tham so tuong ung.
+- `modules/rds/main.tf:37-40`: `aws_secretsmanager_secret.db` da co `lifecycle { prevent_destroy = true }`.
+- `modules/rds/main.tf:91-95`: `aws_db_instance.this` da co `lifecycle { prevent_destroy = true }` kem `ignore_changes = [final_snapshot_identifier, password]`.
+- Ket luan: S03-T02 khong can sua code -> tick Done luon. S03-T03 an toan tien hanh.
+
+### 2026-05-17 - S03-T04 review (iac-reviewer)
+
+- Verdict: approve with comments
+- Sub-tasks ticked: S03-T03 (S03-T01 va S03-T02 da tick truoc do, giu nguyen)
+- Sub-tasks reassigned to iac-builder: none
+- Sub-tasks reassigned to other agents: none
+- Open questions raised: none
+- Findings count: BLOCKER 0, HIGH 0, MEDIUM 0, LOW 1, INFO 2
+
+Diff trong scope IaC chi gom `envs/_shared/main.tf` (+24 / -24) va `envs/_shared/outputs.tf` (+5 / -5). Khong co diff o `modules/`, `envs/development/`, `envs/production/`, `global/`, `bootstrap/`, `.github/`, `scripts/`. CLAUDE.md co diff trong working tree (+38 dong, them section "Software install, download, and upload gate") nhung nam ngoai scope cua Sprint S03; khong block.
+
+Verify chi tiet:
+
+1. `envs/_shared/main.tf:44-60` - block `module "rds"` un-comment dung mau Sprint. `ingress_security_group_ids = []` co comment `# S03: temporary empty list, restored in S04`. Kiem tra `modules/rds/main.tf:14-22`: `aws_security_group_rule.ingress_from_ecs` dung `count = length(var.ingress_security_group_ids)` -> voi list rong, count = 0, resource khong tao -> plan/validate khong fail. Pattern hop le.
+2. `envs/_shared/main.tf:62-68` - block `module "iam_app_roles"` un-comment dung mau Sprint. `frontend_bucket_arn = null` co comment `# S03: temporary null, restored in S04`. Bien o `modules/iam-app-roles/variables.tf:11-15` co `type = string`, `default = null`, nullable mac dinh true. `grep` toan bo `modules/iam-app-roles/` cho `frontend_bucket_arn` chi tra ve dong khai bao bien (variables.tf:11) -> xac nhan bien la dead code, null khong gay anh huong runtime. Builder T01 dung.
+3. `envs/_shared/outputs.tf:65-69` - `output "rds_endpoint"` un-comment dung mau, giu `sensitive = true`.
+4. Cac module van phai comment (`ecs_service`, `frontend_cdn`, `observability`) van comment day du; khong co data source / output nao ngoai tham chieu cua chung lo ra (grep `ecs_service|frontend_cdn|observability` trong `envs/_shared/` chi tra ve cac dong nam trong block comment voi tien to `# `).
+5. Marker `# PHASED-DEPLOY S01` da bien mat (grep `PHASED-DEPLOY` trong `envs/_shared/` -> No matches).
+6. `modules/rds/main.tf:31-41` (`aws_secretsmanager_secret.db`) va `modules/rds/main.tf:53-96` (`aws_db_instance.this`) co `lifecycle { prevent_destroy = true }` voi comment giai thich; `aws_db_instance` con co `ignore_changes = [final_snapshot_identifier, password]` la chu y vi `final_snapshot_identifier` dung `formatdate(..., timestamp())` se tao drift moi lan plan neu khong ignore.
+7. Khong co `terraform.workspace`, `workspace_key_prefix`, `terraform workspace` o `envs/_shared/`. Khong co `provider "..." {}` o `modules/`. Khong co `terraform state mv|rm|import` trong source. Khong co refactor (rename / move / count<->for_each / adopt), nen khong can `moved`/`import`/`removed` block.
+8. `scripts/verify-envs-in-sync.sh` chay -> `OK: envs/development and envs/production are in sync.`
+9. `terraform fmt -check -recursive` chay -> exit 0, khong file nao bi flag.
+
+Findings:
+
+- [LOW] toolchain - terraform local version 1.9.2 < required_version `>= 1.11` cua repo va khong khop `.terraform-version` (1.13.3). Khong the chay `terraform validate` o `envs/development/` tu may nay. Theo CLAUDE.md "Software install, download, and upload gate", reviewer khong tu cai/upgrade. Reassigned to: user. Khuyen nghi: user cap nhat terraform len 1.13.3 (vd qua tfenv) hoac de CI pipeline chay `terraform validate` thay. Khong block deploy vi GitHub Actions CI luon chay `terraform validate` o phase plan.
+- [INFO] toolchain - `tflint` khong co tren PATH cua may local. Reviewer khong tu cai. Reassigned to: user. Khong block vi CI workflow chay tflint trong pipeline.
+- [INFO] convention - `module "iam_app_roles"` o `envs/_shared/main.tf:62-68` nhan `frontend_bucket_arn = null`. Day la dead code da biet tu T01; KHONG can fix trong S03 (theo plan se phuc hoi gia tri thuc o S04). Sau S04, neu builder de y, nen mo issue cleanup: hoac them IAM policy thuc su dung bien, hoac xoa bien va tham so tuong ung de tranh confusion.
+
+Sub-task status:
+
+- S03-T01: Done (da tick truoc) - giu [x].
+- S03-T02: Done (da tick truoc) - giu [x].
+- S03-T03: Done - tick [x] o turn nay.
+- S03-T04: Done o turn nay - main thread tick sau khi review entry duoc append.
+
+Recommend main thread: co the dispatch `terraform-planner` cho S03-T05 vi diff IaC pass dimension 1-6, parity giua 2 env van OK, khong co BLOCKER / HIGH. Hai finding LOW/INFO ve toolchain (`terraform`, `tflint`) nhuong cho user xu ly truoc khi merge len `development` hoac dua vao CI pipeline xac nhan.
+
+Quality gates summary:
+
+- terraform fmt -check -recursive: PASS
+- terraform validate (envs/development): SKIPPED - local terraform 1.9.2 < required_version >= 1.11, reviewer khong duoc cai/upgrade (CLAUDE.md). Dua sang CI hoac yeu cau user nang version.
+- tflint --recursive: SKIPPED - tflint khong co tren PATH, reviewer khong duoc cai. Dua sang CI hoac yeu cau user cai.
+- envs in sync (scripts/verify-envs-in-sync.sh): PASS
+
+Playwright not used; no screenshots to clean.
+
+### 2026-05-18 - main-thread (S03 phased-deploy closure via bomb-fix plan)
+
+Sprint S03 cua phased-deploy KET THUC THANH CONG nhung qua duong vong. Quy trinh thuc te:
+
+1. **Apply lan 1 (S03-T06 dau)**: Fail vi `rds_storage_gb = 15` < 20GB toi thieu cua PostgreSQL gp3. Tuy nhien apply thanh cong mot phan: `random_password`, `aws_secretsmanager_secret`, `aws_secretsmanager_secret_version`, RDS security group, RDS subnet group, IAM roles - tat ca da vao tfstate. RDS instance KHONG tao duoc.
+
+2. **Bom xuat hien**: Tu lan plan tiep theo, role `gha-infra-plan` (chi co `ReadOnlyAccess`) khong the goi `GetSecretValue` de refresh `aws_secretsmanager_secret_version.db` -> AccessDeniedException -> dev env dong bang. Xem chi tiet tai `notes/plans/2026-05-18-fix-secret-version-refresh-bomb/`.
+
+3. **Plan rieng `2026-05-18-fix-secret-version-refresh-bomb`** giai quyet bang 4 Sprint:
+   - S01: Va tam `gha-infra-plan` them `GetSecretValue` -> unblock plan workflow.
+   - S02: Comment lai `module "rds"` + `module "iam_app_roles"` trong `envs/_shared/main.tf` -> destroy resource cu (PR #22).
+   - S03 v2 (Pattern C): Refactor `modules/rds` bo `random_password` + `aws_secretsmanager_secret_version` (loai bo bom khoi tfstate), thay bang `var.master_password` + composite action `sync-secret-value` inject value sau apply. Fix rds_storage_gb 15->20. Hardcode wiring. (PR #23, #24)
+   - S04: Xoa inline policy tam thoi cua S01 -> least-privilege achieved (PR #25).
+
+4. **Ket qua tuong duong S03-T05 va S03-T06 ban dau**:
+   - Plan thanh cong (qua CI workflow chu khong qua terraform-planner agent local).
+   - Apply thanh cong tren `development` branch sau khi merge PR #23 + #24.
+   - RDS instance `development-postgres` trang thai `available`.
+   - Secrets Manager secret ton tai (ten moi `/3-tiers-app/development/rds/credentials` thay vi `/...rds/master`).
+   - IAM roles `3-tiers-app-development-task*` ton tai.
+   - Bom defused vinh vien, plan workflow PR test sau S04 PASS hoan toan khong can `GetSecretValue`.
+
+5. **Khac biet vs design ban dau**:
+   - Secret name: `/3-tiers-app/<env>/rds/master` -> `/3-tiers-app/<env>/rds/credentials` (tranh conflict voi secret cu dang scheduled deletion).
+   - Password source: Terraform `random_password` -> GitHub Environment Secret `RDS_MASTER_PASSWORD` (per env), inject qua TF_VAR + post-apply CI step.
+   - Secret value owner: Terraform -> CI/CD composite action `sync-secret-value` (idempotent compare-then-write).
+   - Module Terraform khong con quan ly secret value, chi quan ly metadata.
+
+Tick S03-T05 va S03-T06: DONE qua route bomb-fix. Sprint S03 cua phased-deploy ket thuc; co the chuyen sang S04 cua phased-deploy (uncomment `ecs_service`, `frontend_cdn`, `observability`).
 
 ## Last updated
 
