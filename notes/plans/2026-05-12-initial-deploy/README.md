@@ -18,30 +18,34 @@ File nay la runbook tracking. Agent va nguoi dung tick checkbox khi step hoan th
 - [x] **A.3** - Hardening cho public repo: Settings -> Actions -> General -> "Fork pull request workflows from outside collaborators" = "Require approval for all outside collaborators". Workflow permissions = read-only default. (User tu setup.)
 - [x] **A.4** - Tao 2 long-lived branches `development` va `production` tu `master`, push len origin. (User tu setup.)
 
-## Phase B - First deploy to development
+## Phase B - First deploy to development (DONE - replaced by phased rollout)
 
 Muc tieu: dua toan bo ha tang dev len AWS account 405226342924, verify resources hoat dong, before chuyen prod.
 
-- [ ] **B.1** - Review `envs/development/terraform.tfvars`. Xac nhan `vpc_cidr = "10.10.0.0/16"` (khong trung VPC nao da co trong account), cac block `domain_name`, `alarm_sns_topic_arn` van comment-out cho lan deploy dau. Acceptance: file khong co reference toi resource chua ton tai (cert ARN, hosted zone ID, SNS topic).
-- [ ] **B.2** - Tu `master` checkout `development`, pull latest. Tao feature branch tu `development` (vd `feature/initial-deploy`).
-- [ ] **B.3** - Edit nhe `envs/development/terraform.tfvars` (vi du them comment hoac sua 1 tag) de tao diff trong `envs/**` -> dieu kien trigger `terraform-plan.yaml` tren PR. Commit va push feature branch len origin.
-- [ ] **B.4** - Mo PR base=`development`, head=`feature/initial-deploy`. Doi workflow `Terraform Plan` chay. Acceptance: `sync-check` job pass, `plan` job comment plan output len PR khong co error.
-- [ ] **B.5** - Review plan tren PR. Xac nhan: chi co `create` actions, khong co `replace` hoac `destroy`, tong so resource khoang 30-50 (VPC + subnets + RDS + ECS + ALB + ECR + CloudFront + IAM + CloudWatch). Action `check-state-preservation` khong block.
-- [ ] **B.6** - Merge PR vao `development`. Push tu phia GitHub UI (Squash hoac Rebase tuy preference - khong ep buoc).
-- [ ] **B.7** - Push toi `development` se trigger `terraform-apply.yaml`. Vao Actions tab, click run -> click "Review deployments" -> tick `development` -> Approve. Job `apply` chay `terraform apply tfplan`. Acceptance: job ket thuc `Success`, log ket thuc bang `Apply complete!`.
-- [ ] **B.8** - Verify resources tren AWS Console:
-  - VPC `development-vpc` (10.10.0.0/16) va 6 subnet (3 public + 3 private)
-  - RDS instance `development-rds-app` (status `available`, single-AZ, db.t4g.small)
-  - ECS cluster `development-ecs-app`, service co 1 task running (hoac pending neu chua co container image trong ECR)
-  - ALB `development-alb-app` co DNS name
-  - ECR repo `development-ecr-app`
-  - CloudFront distribution status `Deployed`
-  - CloudWatch log group cho ECS task
-- [ ] **B.9** - Note ket qua deploy vao file moi `notes/deploys/2026-05-12-dev-initial.md` (timestamp, ALB DNS, CloudFront domain, bat ky resource ID quan trong nao).
+**Cap nhat 2026-05-19**: Toan bo viec "first deploy to development" KHONG duoc thuc hien bang mot lan deploy lon nhu plan ban dau. Thay vao do, no duoc tach thanh plan rieng `notes/plans/2026-05-15-phased-deploy-development/` voi 4 Sprint (S01 networking, S02 ECR/ALB/ECS-cluster, S03 RDS/IAM, S04 ECS service/CDN/observability) va kien truc cost-optimized (2 AZ, khong NAT/EIP, ECS Fargate trong public subnet). Plan phased-deploy da dong toan bo vao 2026-05-19. Cac checkbox duoi tick theo ket qua thuc te cua plan phased-deploy.
+
+- [x] **B.1** - Review `envs/development/terraform.tfvars`. Xac nhan `vpc_cidr = "10.10.0.0/16"` (khong trung VPC nao da co trong account), cac block `domain_name`, `alarm_sns_topic_arn` van comment-out cho lan deploy dau. Acceptance: file khong co reference toi resource chua ton tai (cert ARN, hosted zone ID, SNS topic). **(Done qua S01-T01 cua plan phased-deploy)**
+- [x] **B.2** - Tu `master` checkout `development`, pull latest. Tao feature branch tu `development` (vd `feature/initial-deploy`). **(Done - moi Sprint phased-deploy dung mot feature branch rieng tu `development`)**
+- [x] **B.3** - Edit nhe `envs/development/terraform.tfvars` (vi du them comment hoac sua 1 tag) de tao diff trong `envs/**` -> dieu kien trigger `terraform-plan.yaml` tren PR. Commit va push feature branch len origin. **(Done - cac PR phased-deploy uncomment dan module call trong `envs/_shared/main.tf`)**
+- [x] **B.4** - Mo PR base=`development`, head=`feature/initial-deploy`. Doi workflow `Terraform Plan` chay. Acceptance: `sync-check` job pass, `plan` job comment plan output len PR khong co error. **(Done qua nhieu PR cua phased-deploy: S01, S02a/b/c, S02d, S03, S04 - PR #28 la PR cuoi cung)**
+- [x] **B.5** - Review plan tren PR. Xac nhan: chi co `create` actions, khong co `replace` hoac `destroy`, tong so resource khoang 30-50 (VPC + subnets + RDS + ECS + ALB + ECR + CloudFront + IAM + CloudWatch). Action `check-state-preservation` khong block. **(Done qua terraform-planner cho moi Sprint phased-deploy)**
+- [x] **B.6** - Merge PR vao `development`. Push tu phia GitHub UI (Squash hoac Rebase tuy preference - khong ep buoc). **(Done - PR cuoi cung #28 merged 2026-05-19 17:23 +0700, commit `46eea80`)**
+- [x] **B.7** - Push toi `development` se trigger `terraform-apply.yaml`. Vao Actions tab, click run -> click "Review deployments" -> tick `development` -> Approve. Job `apply` chay `terraform apply tfplan`. Acceptance: job ket thuc `Success`, log ket thuc bang `Apply complete!`. **(Done - `terraform-apply.yaml` PASS cho ca 4 Sprint)**
+- [x] **B.8** - Verify resources tren AWS Console:
+  - VPC `development-vpc` (10.10.0.0/16) va **4 subnet (2 public + 2 private)** - cost-optimized 2-AZ, khac voi plan ban dau (6 subnet). Xem `notes/plans/2026-05-15-phased-deploy-development/README.md` section "Quyet dinh kien truc cost-optimization".
+  - RDS instance `development-rds-app` (status `available`, single-AZ, db.t4g.small) - **deployed qua S03 (plan rieng `2026-05-18-fix-secret-version-refresh-bomb`)**
+  - ECS cluster `development-ecs-app`, service - **deployed qua S02c (cluster) + S04 (service); task running phu thuoc image trong ECR (xem D.3)**
+  - ALB `development-alb-app` co DNS name - **deployed qua S02b**
+  - ECR repo `development-ecr-app` - **deployed qua S02a**
+  - CloudFront distribution status `Deployed` - **deployed qua S04**
+  - CloudWatch log group cho ECS task - **deployed qua S04 (observability)**
+- [ ] **B.9** - Note ket qua deploy vao file moi `notes/deploys/2026-05-12-dev-initial.md` (timestamp, ALB DNS, CloudFront domain, bat ky resource ID quan trong nao). **(CHUA TAO - ket qua deploy dang nam trong "Last updated" log cua `notes/plans/2026-05-15-phased-deploy-development/README.md`. Neu can file deploy log rieng theo dung format ban dau thi can tao bo sung.)**
 
 ## Phase C - Promote to production
 
 Chi bat dau khi Phase B 100% done va dev chay on dinh it nhat 1 ngay (de catch drift hoac config sai som).
+
+**Status 2026-05-19**: CHUA THUC HIEN. Theo phased-deploy README, sau khi moi Sprint dev hoan tat thi cho replicate sang `production` qua PR base=`production`. Hien tai feature branch `feature/phased-deploy-s04-full-stack` da co tat ca diff nhung chua mo PR vao `production`.
 
 - [ ] **C.1** - Review `envs/production/terraform.tfvars`. Quyet dinh nhung gia tri can khac dev (vi du `vpc_cidr = "10.20.0.0/16"` de tach network, `rds_multi_az = true`, `rds_backup_retention_days = 30`, `rds_deletion_protection = true`, `ecs_desired_count >= 2`, `rds_instance_class` cao hon). LUU Y: dev va prod dung chung AWS account 405226342924 nen 2 set resource SE cung ton tai trong account; tach CIDR de tranh route conflict.
 - [ ] **C.2** - Tao feature branch tu `production` (vd `feature/promote-to-prod`). Sync `envs/production/` voi cac thay doi can co (chi tfvars - cac file khac phai byte-identical voi dev theo `scripts/verify-envs-in-sync.sh`).
@@ -55,10 +59,12 @@ Chi bat dau khi Phase B 100% done va dev chay on dinh it nhat 1 ngay (de catch d
 
 Sau khi dev va prod chay, bat cac job operational.
 
-- [ ] **D.1** - Verify drift detection workflows. `terraform-drift.yaml` va `cfn-drift-detect.yaml` da co - check trigger schedule (cron) co dung khong, manual trigger thu de xac nhan workflow chay duoc.
-- [ ] **D.2** - Wire SNS topic cho ECS/RDS/ALB alarm. Tao topic `ops-alerts` trong account, set var `alarm_sns_topic_arn` trong `envs/<env>/terraform.tfvars`, re-deploy.
+**Status 2026-05-19**: Tat ca D.1-D.6 CHUA xac nhan thuc hien. File workflow cho D.1 da ton tai san trong repo nhung chua co bang chung manual-trigger / cron run. D.4 (Route53) da xac nhan chua deploy - stack `global/route53/` con thieu `backend.tf` va chua co workflow apply.
+
+- [ ] **D.1** - Verify drift detection workflows. `terraform-drift.yaml` va `cfn-drift-detect.yaml` da co - check trigger schedule (cron) co dung khong, manual trigger thu de xac nhan workflow chay duoc. **(File workflow da ton tai: `.github/workflows/terraform-drift.yaml`, `.github/workflows/cfn-drift-detect.yaml`. Chua xac nhan chay thuc te.)**
+- [ ] **D.2** - Wire SNS topic cho ECS/RDS/ALB alarm. Tao topic `ops-alerts` trong account, set var `alarm_sns_topic_arn` trong `envs/<env>/terraform.tfvars`, re-deploy. **(`alarm_sns_topic_arn` van comment-out trong `envs/development/terraform.tfvars`.)**
 - [ ] **D.3** - Build va push container image dau tien vao ECR `development-ecr-app` (frontend va backend repo). ECS service se tu pull va run task khi co image hop le.
-- [ ] **D.4** - Quyet dinh ve domain. Neu dung Route53 + ACM, hoan thanh stack `global/route53/` (tao backend.tf rieng - co note trong `global/route53/README.md`), apply, lay nameservers, dang ky tai registrar. Sau do uncomment `domain_name`, `alb_acm_cert_arn`, `frontend_cf_cert_arn`, `hosted_zone_id` trong tfvars va re-deploy.
+- [ ] **D.4** - Quyet dinh ve domain. Neu dung Route53 + ACM, hoan thanh stack `global/route53/` (tao backend.tf rieng - co note trong `global/route53/README.md`), apply, lay nameservers, dang ky tai registrar. Sau do uncomment `domain_name`, `alb_acm_cert_arn`, `frontend_cf_cert_arn`, `hosted_zone_id` trong tfvars va re-deploy. **(Verified 2026-05-19: `global/route53/backend.tf` chua tao, chua co workflow apply cho `global/route53/`, `domain_name`/`alb_acm_cert_arn`/`frontend_cf_cert_arn`/`hosted_zone_id` van comment-out trong tfvars. Module CHUA deploy o bat ky Sprint nao.)**
 - [ ] **D.5** - Security audit lai cho public repo: scan `gha-infra-plan` role trust policy, scan workflow trigger conditions, check IAM policy attached cho `gha-infra-apply` co exceeded scope khong. Dispatch `iac-reviewer` + `github-actions-reviewer` lam audit pass.
 - [ ] **D.6** - Decide ve "Allow administrators to bypass configured protection rules" tren GitHub Environment `production`. Voi prod, nen tat option nay de admin (chinh user) khong the override approval gate.
 
