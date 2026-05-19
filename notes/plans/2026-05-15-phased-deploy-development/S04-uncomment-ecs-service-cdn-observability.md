@@ -85,14 +85,14 @@ Khi `module "iam_app_roles"` nhan duoc `frontend_bucket_arn` thuc (thay vi null 
 
 ## Sub-tasks
 
-- [ ] S04-T01 - Un-comment module ecs_service, frontend_cdn, observability trong `envs/_shared/main.tf`; phuc hoi ingress_security_group_ids va frontend_bucket_arn; un-comment toan bo phan con lai cua `envs/_shared/outputs.tf`
+- [x] S04-T01 - Un-comment module ecs_service, frontend_cdn, observability trong `envs/_shared/main.tf`; phuc hoi ingress_security_group_ids va frontend_bucket_arn; un-comment toan bo phan con lai cua `envs/_shared/outputs.tf`
   - Assignee: iac-builder
   - Inputs / preconditions: `envs/_shared/main.tf` sau S03 (co 2 gia tri tam thoi, 3 module van comment), `envs/_shared/outputs.tf` sau S03; RDS, IAM roles, ECR, ALB, ECS cluster, networking da ton tai tren AWS
   - Outputs / artifacts: `envs/_shared/main.tf` giong het file goc truoc S01; `envs/_shared/outputs.tf` giong het file goc truoc S01
   - Depends on: S03-T06 (RDS, IAM da deploy thanh cong)
   - Notes: Xoa het cac comment tam thoi "# S03: temporary..." truoc khi commit. File cuoi cung phai sach - khong con comment rac nao con lai tu qua trinh phased deploy.
 
-- [ ] S04-T02 - Review diff Sprint S04
+- [x] S04-T02 - Review diff Sprint S04
   - Assignee: iac-reviewer
   - Inputs / preconditions: diff cua S04-T01
   - Outputs / artifacts: tick S04-T01; reassign neu co van de
@@ -138,6 +138,36 @@ Cac reviewer tick box khi verify xong.
 ## Review log
 
 (Cac reviewer append vao day sau khi hoan thanh review.)
+
+### 2026-05-19 - iac-reviewer
+- Verdict: approve
+- Sub-tasks ticked: S04-T01, S04-T02
+- Sub-tasks reassigned to iac-builder: none
+- Sub-tasks reassigned to other agents: none
+- Open questions raised: none
+- Findings count: BLOCKER 0, HIGH 0, MEDIUM 0, LOW 0, NIT 0, INFO 1
+
+Tom tat:
+- Diff cua S04-T01 chinh xac voi yeu cau Sprint:
+  - Un-comment 3 module `ecs_service`, `frontend_cdn`, `observability` trong `envs/_shared/main.tf`.
+  - Phuc hoi `ingress_security_group_ids = [module.ecs_service.security_group_id]` o `module "rds"`.
+  - Phuc hoi `frontend_bucket_arn = module.frontend_cdn.bucket_arn` o `module "iam_app_roles"`.
+  - Un-comment toan bo phan SSM parameter + output con lai cua `envs/_shared/outputs.tf` (ecs_service_name, ecs_task_definition_family, frontend_bucket, cloudfront_distribution_id, observability_*_alarm_arn).
+- So sanh voi baseline pre-S01 (commit 0837c87): cau truc 9 module va outputs/SSM cua `envs/_shared/` da khoi phuc dung. Sai khac duy nhat la nhung thay doi co chu dich tu cac plan khac (tag `Repository`, ECR repo name suffix `-${var.environment}`, `master_password` cho RDS, output `rds_secret_arn`, ECS subnet/public_ip cua refactor cost-opt). Khong co drift ngoai du kien.
+- Khong con comment rac `# S03: temporary` / `# S04:` / module block bi comment toan bo trong hai file (grep `S03|S04|temporary|phased` va `^#\s*(module|resource|output|data)` deu rong).
+- Cross-module reference da xac minh ton tai:
+  - `module.ecs_service.service_name`, `task_definition_family`, `security_group_id` trong `modules/ecs-service/outputs.tf`.
+  - `module.frontend_cdn.bucket_name`, `bucket_arn`, `distribution_id` trong `modules/frontend-cdn/outputs.tf`.
+  - `module.observability.ecs_cpu_alarm_arn`, `rds_connections_alarm_arn`, `alb_5xx_alarm_arn` trong `modules/observability/outputs.tf`.
+- ECS Fargate subnet binding khop refactor cost-opt: `var.subnet_ids` (list) + `var.assign_public_ip` (bool) ton tai trong `modules/ecs-service/variables.tf`, va `network_configuration` trong `modules/ecs-service/main.tf` dung dung hai bien nay (subnets = var.subnet_ids, assign_public_ip = var.assign_public_ip).
+- Quality gates local-only chay lai:
+  - `terraform fmt -check -recursive`: PASS (exit 0).
+  - `scripts/verify-envs-in-sync.sh`: PASS ("OK: envs/development and envs/production are in sync.").
+  - `tflint` SKIP (khong co tren PATH - khong phai loi cua diff nay).
+  - `terraform validate` SKIP (gate AWS API + remote backend init - se duoc terraform-planner xu ly o S04-T03).
+- [INFO] `modules/iam-app-roles/main.tf` hien KHONG tham chieu `var.frontend_bucket_arn` (variable chi duoc khai bao trong `variables.tf` nhung khong duoc dung trong main.tf). Do do viec doi tu `null` -> `module.frontend_cdn.bucket_arn` o env wiring se KHONG sinh IAM policy moi hoac trigger update IAM resource nao. Sprint plan dong 66-68 noi "Terraform co the tao them IAM policy cho bucket hoac update policy hien tai" - thuc te plan se chi co `frontend_cdn` + `ecs_service` + `observability` resource moi, va `iam_app_roles` van no-op (hoac chi update do change-set cua biet sai variable value, tuy plan engine - khong replace, khong delete). terraform-planner xac nhan o S04-T03.
+
+Ket luan: code dat yeu cau. San sang dispatch terraform-planner cho S04-T03.
 
 ## Last updated
 
