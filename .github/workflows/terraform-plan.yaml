@@ -85,11 +85,61 @@ jobs:
           commit-message: ${{ github.event.pull_request.title }}
           pr-labels: ${{ toJson(github.event.pull_request.labels.*.name) }}
 
+      # ---------------------------------------------------------------------------
+      # Infrastructure dependency graph (inframap).
+      # inframap turns the raw Terraform graph into a readable, provider-aware
+      # dependency graph of actual infra resources. These steps are best-effort:
+      # continue-on-error keeps a rendering failure from ever breaking the plan.
+      # ---------------------------------------------------------------------------
+      - name: Install inframap and Graphviz
+        id: install-inframap
+        continue-on-error: true
+        run: |
+          # Pin the inframap release; bump this when a newer release is available.
+          INFRAMAP_VERSION="v0.7.0"
+          curl -fsSL -o /tmp/inframap.tar.gz \
+            "https://github.com/cycloidio/inframap/releases/download/${INFRAMAP_VERSION}/inframap-linux-amd64.tar.gz"
+          tar -xzf /tmp/inframap.tar.gz -C /tmp
+          # The release tarball ships a single binary; install it regardless of its exact name.
+          INFRAMAP_BIN="$(find /tmp -maxdepth 1 -type f -name 'inframap*' ! -name '*.tar.gz' | head -n1)"
+          sudo install -m 0755 "$INFRAMAP_BIN" /usr/local/bin/inframap
+          # Graphviz (`dot`) is preinstalled on ubuntu-latest; install only if missing.
+          command -v dot >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y graphviz; }
+
+      - name: Render infrastructure dependency graph
+        id: infra-graph
+        if: steps.install-inframap.outcome == 'success'
+        continue-on-error: true
+        run: |
+          # Pull the current remote state locally to feed inframap. The state file can
+          # contain sensitive values, so it is deleted right after and is NEVER uploaded
+          # as an artifact. Only the rendered graph (resource topology only) is kept.
+          terraform state pull > tfstate.json
+          inframap generate tfstate.json > infra-graph.dot
+          dot -Tsvg infra-graph.dot -o infra-graph.svg
+          dot -Tpng -Gdpi=150 infra-graph.dot -o infra-graph.png
+          rm -f tfstate.json
+
+      - name: Upload dependency graph artifact
+        if: steps.infra-graph.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-dependency-graph-${{ env.ENV_DIR }}
+          path: |
+            envs/${{ env.ENV_DIR }}/infra-graph.dot
+            envs/${{ env.ENV_DIR }}/infra-graph.svg
+            envs/${{ env.ENV_DIR }}/infra-graph.png
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Comment plan on PR
         uses: actions/github-script@v7
         with:
           script: |
-            const output = `### Terraform Plan - \`${{ env.ENV_DIR }}\` ${{ steps.plan.outcome == 'success' && 'OK' || 'FAILED' }}\n\n<details><summary>Plan output</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n\n</details>`;
+            const graphNote = '${{ steps.infra-graph.outcome }}' === 'success'
+              ? '\n\n Infrastructure dependency graph (inframap) is attached to this run as the **infra-dependency-graph-${{ env.ENV_DIR }}** artifact (`.svg` / `.png` / `.dot`).'
+              : '';
+            const output = `### Terraform Plan - \`${{ env.ENV_DIR }}\` ${{ steps.plan.outcome == 'success' && 'OK' || 'FAILED' }}\n\n<details><summary>Plan output</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n\n</details>${graphNote}`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
