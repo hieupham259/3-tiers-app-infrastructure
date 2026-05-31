@@ -131,6 +131,7 @@ Resources:
                 Action:
                   - ecs:UpdateService
                   - ecs:DescribeServices
+                  - ecs:DescribeTasks
                   - ecs:DescribeTaskDefinition
                   - ecs:RegisterTaskDefinition
                   - ecs:RunTask
