@@ -1,0 +1,96 @@
+name: Terraform Destroy
+
+# Manual-only workflow to destroy all Terraform-managed resources in a single
+# AWS environment. This is destructive and irreversible. It is gated by three
+# independent safety mechanisms:
+#   1. workflow_dispatch only - it can never be triggered by push, pull_request,
+#      or a schedule. A human must start it from the GitHub Actions UI.
+#   2. A typed confirmation input - the operator must type the exact word
+#      "destroy" or the job fails before any Terraform command runs.
+#   3. A GitHub Environment - the job binds to the environment named by the
+#      input, so any "Required reviewers" configured on that environment
+#      (in particular the production environment) must approve the run before
+#      it can proceed. Production gating is configured by the repo admin on the
+#      "production" GitHub Environment, not in this file.
+#
+# Required GitHub Actions Repository Variables (Settings -> Secrets and variables
+# -> Actions -> Variables tab):
+#   DEV_ACCOUNT_ID  - 12-digit AWS account ID for the development account
+#   PROD_ACCOUNT_ID - 12-digit AWS account ID for the production account
+# These are Variables (not Secrets) because account IDs are configuration.
+#
+# Required GitHub Actions Secret:
+#   RDS_MASTER_PASSWORD - the RDS master password. Terraform requires the
+#     rds_master_password variable to be set when loading the configuration even
+#     during a destroy (the variable has no default), so it is injected here. The
+#     value is not used to change any resource during a destroy.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target AWS environment to destroy (maps one-to-one to an AWS account and S3 backend).'
+        type: choice
+        required: true
+        options:
+          - development
+          - production
+      confirm_destroy:
+        description: "Type 'destroy' to confirm. This action is irreversible and removes all resources in the selected environment."
+        type: string
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  # Keyed on the selected environment so two destroy runs cannot race on the
+  # same AWS account / backend. cancel-in-progress is false so a run that is
+  # already destroying resources is never cancelled mid-flight.
+  group: terraform-destroy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    # Binds the job to the GitHub Environment matching the input. Required
+    # reviewers configured on that environment (e.g. production) gate the run.
+    environment: ${{ github.event.inputs.environment }}
+    env:
+      ENV_DIR: ${{ github.event.inputs.environment }}
+      ACCOUNT_ID: ${{ github.event.inputs.environment == 'production' && vars.PROD_ACCOUNT_ID || vars.DEV_ACCOUNT_ID }}
+      TF_VAR_repository: ${{ github.event.repository.name }}
+      # Injected so Terraform can load the configuration. rds_master_password has
+      # no default; destroy does not use the value to change any resource.
+      TF_VAR_rds_master_password: ${{ secrets.RDS_MASTER_PASSWORD }}
+    defaults:
+      run:
+        working-directory: envs/${{ env.ENV_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate confirmation input
+        # Second line of defense, before any Terraform command runs. The operator
+        # must have typed exactly "destroy"; otherwise the job fails immediately.
+        run: |
+          if [ "${{ github.event.inputs.confirm_destroy }}" != "destroy" ]; then
+            echo "ERROR: confirm_destroy must be exactly 'destroy' to proceed."
+            exit 1
+          fi
+          echo "Confirmation accepted. Destroying environment '${{ env.ENV_DIR }}'."
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.3
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/gha-infra-apply
+          aws-region: us-east-1
+
+      - name: Terraform init
+        run: terraform init -no-color
+
+      - name: Terraform destroy
+        run: terraform destroy -no-color -auto-approve -input=false
