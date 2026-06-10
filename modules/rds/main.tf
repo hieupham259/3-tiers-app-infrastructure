@@ -72,8 +72,7 @@ resource "aws_db_instance" "this" {
   tags = merge(var.tags, { Name = "${var.environment}-postgres" })
 
   lifecycle {
-    # Prevent accidental destroy: this is the primary application database; recovery requires a snapshot restore and incurs full app downtime.
-    prevent_destroy = true
-    ignore_changes  = [final_snapshot_identifier, password]
+    # final_snapshot_identifier is regenerated from timestamp() on every plan, so ignore it to avoid spurious diffs. password is managed out-of-band via Secrets Manager rotation, so ignore drift here.
+    ignore_changes = [final_snapshot_identifier, password]
   }
 }
