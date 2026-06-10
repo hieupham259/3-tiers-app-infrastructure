@@ -1,8 +1,11 @@
 name: Terraform Destroy
 
-# Manual-only workflow to destroy all Terraform-managed resources in a single
-# AWS environment. This is destructive and irreversible. It is gated by three
-# independent safety mechanisms:
+# Manual-only workflow to destroy the RDS DB instance for a single AWS
+# environment. This is a TARGETED destroy: it removes only the resource at
+# address module.stack.module.rds.aws_db_instance.this and does not touch any
+# other resource (Secrets Manager secret, S3 bucket, ECS service, ALB, VPC,
+# KMS, etc.). It is still destructive and irreversible for that DB instance, so
+# it is gated by three independent safety mechanisms:
 #   1. workflow_dispatch only - it can never be triggered by push, pull_request,
 #      or a schedule. A human must start it from the GitHub Actions UI.
 #   2. A typed confirmation input - the operator must type the exact word
@@ -36,7 +39,7 @@ on:
           - development
           - production
       confirm_destroy:
-        description: "Type 'destroy' to confirm. This action is irreversible and removes all resources in the selected environment."
+        description: "Type 'destroy' to confirm. This action is irreversible and removes the RDS DB instance in the selected environment."
         type: string
         required: true
 
@@ -78,7 +81,7 @@ jobs:
             echo "ERROR: confirm_destroy must be exactly 'destroy' to proceed."
             exit 1
           fi
-          echo "Confirmation accepted. Destroying environment '${{ env.ENV_DIR }}'."
+          echo "Confirmation accepted. Destroying the RDS DB instance in environment '${{ env.ENV_DIR }}'."
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -92,5 +95,11 @@ jobs:
       - name: Terraform init
         run: terraform init -no-color
 
-      - name: Terraform destroy
-        run: terraform destroy -no-color -auto-approve -input=false
+      - name: Terraform destroy RDS DB instance only
+        # TARGETED destroy: this removes only the RDS DB instance at address
+        # module.stack.module.rds.aws_db_instance.this. The -target flag scopes
+        # the operation to that single resource so no other resource in the
+        # environment (Secrets Manager secret, S3 bucket, ECS service, ALB, VPC,
+        # KMS, etc.) is touched. The module.stack. prefix is required because all
+        # resources live inside the "stack" module.
+        run: terraform destroy -target=module.stack.module.rds.aws_db_instance.this -no-color -auto-approve -input=false
