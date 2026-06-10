@@ -24,7 +24,7 @@ Tao file `.github/workflows/terraform-destroy.yaml` cho phep nguoi co quyen tren
 
 ## Sub-tasks
 
-- [ ] S01-T01 - Viet file `.github/workflows/terraform-destroy.yaml`
+- [x] S01-T01 - Viet file `.github/workflows/terraform-destroy.yaml`
   - Assignee: github-action-builder
   - Inputs / preconditions:
     - Noi dung `terraform-apply.yaml` (da doc o tren): dung lam tham chieu cho OIDC setup, role ARN pattern, env var pattern, terraform_version, aws-region.
@@ -87,12 +87,21 @@ Tao file `.github/workflows/terraform-destroy.yaml` cho phep nguoi co quyen tren
 
 (github-actions-reviewer se tick cac box sau khi verify)
 
-- [ ] S01-T01: `.github/workflows/terraform-destroy.yaml` da ton tai va dung spec.
+- [x] S01-T01: `.github/workflows/terraform-destroy.yaml` da ton tai va dung spec.
 
 ## Open questions
 
 - Khong co.
 
-## Last updated
+## Review log
 
-2026-06-10 by task-planner
+### 2026-06-10 - github-actions-reviewer
+- Verdict: approve with comments
+- Sub-tasks ticked: S01-T01
+- Sub-tasks reassigned to github-action-builder: none
+- Sub-tasks reassigned to other agents: none
+- Open questions raised: none
+- act exit code: 1 (pass-path: chi fail o buoc `configure-aws-credentials` vi thieu OIDC token duoi act - day la `act-skip`, dung ky vong; fail-path: fail dung o buoc `Validate confirmation input` khi confirm_destroy != "destroy")
+- Findings count: BLOCKER 0, HIGH 0, MEDIUM 0, LOW 1, NIT 0
+- Ghi chu ve DoD divergence (diem builder neu): DoD goc liet ke buoc `terraform plan -destroy -out=tfplan` truoc destroy va mot buoc validate confirm_destroy rieng. Spec da chot voi nguoi dung chi yeu cau init -> destroy -auto-approve. Ket luan: chap nhan duoc, KHONG reassign. Ly do: (1) buoc validate confirm_destroy van ton tai va chay TRUOC init/destroy (verified ca pass va fail path qua act), dap ung muc tieu an toan cot loi cua DoD; (2) viec bo `terraform plan -destroy` la quyet dinh thiet ke da duoc nguoi dung chot sau khi plan duoc viet, nen khong coi la thieu sot. Ghi nhan thanh LOW finding de truy vet, khong block.
+- LOW finding: `terraform-destroy.yaml` khong co buoc `terraform plan -destroy` truoc `terraform destroy -auto-approve` nhu DoD goc mo ta. Da duoc nguoi dung chap nhan trong spec chot. Khong reassign.
