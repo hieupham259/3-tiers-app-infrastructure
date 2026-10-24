@@ -1,214 +1,214 @@
 # AWS IAM Role & Policy
 
-An AWS access policy can be described from several viewpoints at once: what it does, where it applies, how it is stored, who maintains it, and how it controls access.
+Policy kiểm soát truy cập trong AWS có thể được phân loại theo nhiều góc nhìn cùng lúc: dùng để làm gì, áp dụng ở đâu, được lưu như thế nào, ai quản lý và kiểm soát quyền ra sao.
 
-These viewpoints overlap. A role trust policy is also a resource-based policy; an application permissions policy can be both identity-based and customer managed.
+Các góc nhìn này chồng lên nhau. Trust policy của role đồng thời là resource-based policy; policy cấp quyền cho ứng dụng có thể vừa là identity-based policy, vừa là customer managed policy.
 
-This document covers IAM and related access-control policies, then distinguishes them from other AWS policies. Documentation checked on October 24, 2026.
+Tài liệu này trình bày các policy quản lý quyền truy cập trong IAM và những cơ chế liên quan, sau đó phân biệt chúng với các policy AWS phục vụ mục đích khác. Tài liệu nguồn được đối chiếu ngày 24/10/2026.
 
-## 1. Start with the IAM role: trust and permissions
+## 1. Bắt đầu từ IAM role: trust policy và permissions policy
 
-An IAM role is an AWS identity that a permitted person, application, or service can assume. Assuming a role provides temporary credentials for a role session.
+IAM role là một danh tính AWS mà người dùng, ứng dụng hoặc dịch vụ được phép có thể đảm nhận (assume role). Khi đảm nhận role, bên sử dụng nhận thông tin xác thực tạm thời cho một phiên truy cập.
 
-When explaining a role, separate its trust policy from its permissions policies:
+Khi tìm hiểu role, cần phân biệt trust policy với các permissions policy:
 
-| Policy | Question it answers | Example |
+| Loại policy | Trả lời câu hỏi | Ví dụ |
 | --- | --- | --- |
-| Trust policy | Who is trusted to assume this role, and under what conditions? | Allow the EC2 service to assume an application role. |
-| Permissions policy | What actions can this role perform, on which resources, and under what conditions? | Allow reading objects in an application S3 bucket. |
+| Trust policy | Ai được tin cậy để đảm nhận role này, và với điều kiện nào? | Cho phép dịch vụ EC2 đảm nhận role của ứng dụng. |
+| Permissions policy | Khi sử dụng role, được làm gì, trên tài nguyên nào và với điều kiện nào? | Cho phép đọc đối tượng trong bucket S3 của ứng dụng. |
 
-Permission to assume a role and permission to read application data are separate authorizations. A trust policy authorizes role assumption; it does not itself grant S3 object access.
+Quyền đảm nhận role và quyền đọc dữ liệu ứng dụng là hai quyền riêng. Trust policy cho phép đảm nhận role; bản thân nó không cấp quyền đọc đối tượng S3.
 
-The distinction above describes the function of policies associated with a role. It is not a complete classification of every AWS policy.
+Cách phân biệt này mô tả chức năng của các policy gắn với một role. Nó chưa bao quát toàn bộ các loại policy trong AWS.
 
-Source: [IAM roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html).
+Nguồn: [IAM roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html).
 
-## 2. Classify by policy type and enforcement scope
+## 2. Phân loại theo loại policy và phạm vi áp dụng
 
-AWS currently lists nine policy types or access-control mechanisms in its overview:
+Trang tổng quan của AWS hiện liệt kê chín loại policy hoặc cơ chế kiểm soát truy cập:
 
-| Type | Applies to | Main purpose |
+| Loại | Áp dụng ở đâu? | Mục đích chính |
 | --- | --- | --- |
-| Identity-based policy | IAM user, group, or role | Define the identity's permissions. |
-| Resource-based policy | A resource | Define which principals can access that resource. |
-| VPC endpoint policy | A VPC endpoint | Control access through that endpoint. |
-| Permissions boundary | IAM user or role | Limit permissions available from identity-based policies. |
-| Service control policy (SCP) | Organizations root, OU, or account | Set permission limits for principals in member accounts. |
-| Resource control policy (RCP) | Organizations root, OU, or account | Set permission limits for supported resources in member accounts. |
-| Session policy | A temporary session | Restrict permissions for that session. |
-| Access control list (ACL) | A resource supporting ACLs | Grant resource access using an ACL mechanism. |
-| AWS RAM resource share | A collection of shared resources | Share supported resources across accounts or an organization. |
+| Identity-based policy | IAM user, group hoặc role | Xác định quyền của danh tính. |
+| Resource-based policy | Tài nguyên | Xác định những đối tượng nào được truy cập tài nguyên. |
+| VPC endpoint policy | VPC endpoint | Kiểm soát truy cập đi qua endpoint. |
+| Permissions boundary | IAM user hoặc role | Giới hạn quyền mà identity-based policies có thể cấp. |
+| Service control policy (SCP) | Organizations root, OU hoặc account | Đặt giới hạn quyền cho các danh tính trong tài khoản thành viên. |
+| Resource control policy (RCP) | Organizations root, OU hoặc account | Đặt giới hạn quyền đối với tài nguyên được hỗ trợ trong tài khoản thành viên. |
+| Session policy | Phiên truy cập tạm thời | Thu hẹp quyền của phiên. |
+| Access control list (ACL) | Tài nguyên hỗ trợ ACL | Cấp quyền truy cập tài nguyên bằng cơ chế ACL. |
+| AWS RAM resource share | Nhóm tài nguyên được chia sẻ | Chia sẻ tài nguyên được hỗ trợ giữa các tài khoản hoặc trong tổ chức. |
 
-The list contains related categories rather than completely disjoint boxes. For example, AWS separately lists VPC endpoint policies, while also describing an endpoint policy as resource-based.
+Các nhóm trong danh sách có liên hệ với nhau và có thể chồng lấn. Ví dụ, AWS liệt kê riêng VPC endpoint policy, đồng thời mô tả endpoint policy là resource-based policy.
 
-Sources: [AWS policy types](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policy-types), [VPC endpoint policies](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-access.html), [permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html), [SCPs and RCPs](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_authorization_policies.html), and [session policies in AssumeRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html).
+Nguồn: [Các loại policy AWS](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policy-types), [VPC endpoint policies](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-access.html), [permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html), [SCP và RCP](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_authorization_policies.html), và [session policies trong AssumeRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html).
 
-### Where the trust policy belongs
+### Trust policy nằm ở đâu trong cách phân loại này?
 
-A role trust policy is a resource-based policy attached directly to the IAM role. An S3 bucket policy is another resource-based policy.
+Trust policy của role là resource-based policy gắn trực tiếp vào IAM role. S3 bucket policy là một ví dụ khác của resource-based policy.
 
-An IAM role can be viewed in two ways:
+IAM role có thể được nhìn từ hai phía:
 
-- As an identity performing actions: its attached identity-based policies define permissions.
-- As a resource that another principal wants to assume: its trust policy defines the trust relationship.
+- Là danh tính thực hiện hành động: các identity-based policies gắn vào role xác định quyền của nó.
+- Là tài nguyên mà đối tượng khác muốn đảm nhận: trust policy xác định quan hệ tin cậy.
 
-Resource-based policies are stored directly on their resources. They are not standalone AWS managed or customer managed identity policies.
+Resource-based policies được lưu trực tiếp trên tài nguyên. Chúng không phải các identity policy độc lập thuộc nhóm AWS managed hoặc customer managed.
 
-Source: [Resource-based policies](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_resource-based).
+Nguồn: [Resource-based policies](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_resource-based).
 
-## 3. Classify by storage, reuse, and maintenance
+## 3. Phân loại theo cách lưu, khả năng dùng chung và bên quản lý
 
-For identity-based policies, distinguish standalone managed policies from policies embedded in one identity.
+Với identity-based policies, cần phân biệt managed policy tồn tại độc lập với inline policy được nhúng trực tiếp vào một danh tính.
 
-| Category | Maintained by | Reusable across identities? | Can you edit its permissions? |
+| Nhóm | Ai quản lý? | Có thể dùng chung cho nhiều danh tính? | Bạn có thể sửa quyền bên trong? |
 | --- | --- | --- | --- |
-| AWS managed policy | AWS | Yes | No, not directly |
-| Customer managed policy | You or your organization | Yes | Yes |
-| Inline policy | You or your organization | No shared policy object; embedded in one user, group, or role | Yes |
+| AWS managed policy | AWS | Có | Không sửa trực tiếp |
+| Customer managed policy | Bạn hoặc tổ chức của bạn | Có | Có |
+| Inline policy | Bạn hoặc tổ chức của bạn | Không có đối tượng policy dùng chung; nhúng riêng trong một user, group hoặc role | Có |
 
-Both AWS managed and customer managed policies are standalone managed policies with their own ARN. An inline policy belongs to one identity and is deleted when that identity is deleted.
+AWS managed và customer managed đều là managed policy độc lập, có ARN riêng. Inline policy thuộc về một danh tính và bị xóa khi danh tính đó bị xóa.
 
-These are two connected viewpoints:
+Ở đây có hai góc nhìn liên quan:
 
-- Storage and reuse: managed versus inline.
-- Maintenance of managed policies: AWS managed versus customer managed.
+- Cách lưu và dùng chung: managed hoặc inline.
+- Bên quản lý managed policy: AWS hoặc khách hàng.
 
-AWS can update an AWS managed policy. Updating a customer managed policy changes the shared policy used by its attached identities. Copying a policy's text into separate inline policies creates separate copies, not one shared policy.
+AWS có thể cập nhật AWS managed policy. Khi bạn cập nhật customer managed policy, các danh tính đang gắn policy đó cùng sử dụng bản được cập nhật. Nếu sao chép nội dung vào nhiều inline policy, bạn tạo ra các bản riêng biệt.
 
-For example, `AdministratorAccess` is an AWS managed policy. When attached as a permissions policy to an IAM user or role, it is also identity-based.
+Ví dụ, `AdministratorAccess` là AWS managed policy. Khi được gắn làm permissions policy cho IAM user hoặc role, nó đồng thời là identity-based policy.
 
-Source: [Managed policies and inline policies](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html).
+Nguồn: [Managed policies và inline policies](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html).
 
-## 4. Classify by authorization function: grants and limits
+## 4. Phân loại theo chức năng kiểm soát quyền: cấp quyền và đặt giới hạn
 
-Different policies participate in an access decision in different ways.
+Các policy tham gia vào quyết định cho phép truy cập theo những cách khác nhau.
 
-| Function | Examples | Meaning |
+| Chức năng | Ví dụ | Ý nghĩa |
 | --- | --- | --- |
-| Grant or deny access | Identity-based and resource-based policies | Can contain permission grants and explicit denials. |
-| Authorize role assumption | Role trust policy | Controls access to assuming the role. |
-| Limit identity-policy grants | Permissions boundary | Sets a maximum for permissions granted through identity-based policies. |
-| Limit organizational access | SCP and RCP | Apply centralized limits to principals or supported resources. |
-| Limit a temporary session | Session policy | Restricts the session rather than adding permissions. |
-| Control an access path | VPC endpoint policy | Adds access control for requests traversing the endpoint. |
+| Cấp hoặc từ chối quyền truy cập | Identity-based và resource-based policies | Có thể chứa quyền cho phép và các quy tắc từ chối tường minh. |
+| Cho phép đảm nhận role | Role trust policy | Kiểm soát việc đảm nhận role. |
+| Giới hạn quyền do identity policy cấp | Permissions boundary | Đặt trần quyền mà identity-based policies có thể cấp. |
+| Giới hạn quyền ở cấp tổ chức | SCP và RCP | Áp dụng giới hạn tập trung cho danh tính hoặc tài nguyên được hỗ trợ. |
+| Giới hạn phiên truy cập tạm thời | Session policy | Thu hẹp quyền của phiên. |
+| Kiểm soát đường truy cập | VPC endpoint policy | Bổ sung kiểm soát cho yêu cầu đi qua endpoint. |
 
-A permissions boundary, SCP, RCP, or session policy does not grant permissions by itself. An `Allow` in one of these limiting policies does not replace a required permission grant.
+Permissions boundary, SCP, RCP và session policy không tự cấp quyền. Một `Allow` trong các policy giới hạn này không thay thế cho quyền truy cập cần được cấp.
 
-A managed policy used as a permissions boundary is performing a different job from a managed policy attached to grant permissions. Its role depends on how it is associated with the identity.
+Một managed policy được dùng làm permissions boundary có chức năng khác với managed policy được gắn để cấp quyền. Vai trò của nó phụ thuộc vào cách được liên kết với danh tính.
 
-Sources: [Permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html), [organization authorization policies](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_authorization_policies.html), and [AssumeRole session policies](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html).
+Nguồn: [Permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html), [policy kiểm soát quyền ở cấp tổ chức](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_authorization_policies.html), và [session policies trong AssumeRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html).
 
-An endpoint policy does not replace permissions required by the destination service. Its restrictions matter to traffic using that endpoint.
+Endpoint policy không thay thế các quyền mà dịch vụ đích yêu cầu. Giới hạn của nó áp dụng cho truy cập đi qua endpoint đó.
 
-Source: [VPC endpoint policies](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-access.html).
+Nguồn: [VPC endpoint policies](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-access.html).
 
-## 5. Classify statements by effect: Allow and Deny
+## 5. Phân loại từng statement theo tác động: Allow và Deny
 
-Each JSON policy statement has an `Effect`:
+Mỗi statement trong JSON policy có trường `Effect`:
 
-- `Allow`: permits the specified actions when the statement applies.
-- `Deny`: explicitly prohibits the specified actions when the statement applies.
+- `Allow`: cho phép các hành động được nêu khi statement áp dụng.
+- `Deny`: từ chối tường minh các hành động được nêu khi statement áp dụng.
 
-A policy can contain both effects in separate statements. Therefore, "Allow policy" and "Deny policy" are informal descriptions of contents, not mutually exclusive policy types.
+Một policy có thể chứa cả hai tác động trong các statement khác nhau. Vì vậy, "Allow policy" và "Deny policy" là cách gọi theo nội dung, không phải hai loại policy loại trừ nhau.
 
-An applicable explicit deny overrides an allow. Requests also fail when a required allow is absent; this is an implicit deny rather than an explicit `Deny` statement.
+Một explicit deny áp dụng cho yêu cầu sẽ thắng allow. Yêu cầu cũng bị từ chối khi thiếu quyền cho phép cần thiết; trường hợp này là implicit deny, không phải một statement `Deny` tường minh.
 
-The meaning of an `Allow` also depends on the policy's function: an allow inside a boundary defines what may be granted, rather than granting it.
+Ý nghĩa của `Allow` còn phụ thuộc vào chức năng của policy: allow trong boundary xác định quyền nào có thể được cấp, thay vì tự cấp quyền đó.
 
-Sources: [Effect](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_effect.html) and [permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html).
+Nguồn: [Effect](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_effect.html) và [permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html).
 
-## 6. Classify by permission breadth and access level
+## 6. Phân loại theo phạm vi quyền và mức truy cập
 
-Descriptions such as full access, read-only access, and custom access describe the breadth of permissions, not where the policy is attached.
+Các mô tả như toàn quyền, chỉ đọc và quyền tùy chỉnh nói về mức độ bao phủ quyền, không nói policy được gắn ở đâu.
 
-AWS classifies service actions into five access levels:
+AWS phân loại hành động của dịch vụ thành năm mức truy cập:
 
-| Access level | Meaning |
+| Mức truy cập | Ý nghĩa |
 | --- | --- |
-| List | Enumerate resources or determine whether they exist. |
-| Read | Read resource contents or attributes. |
-| Write | Create, modify, or delete resources. |
-| Tagging | Modify resource tags through actions dedicated to tagging. |
-| Permissions management | Manage access permissions. |
+| List | Liệt kê tài nguyên hoặc xác định tài nguyên có tồn tại hay không. |
+| Read | Đọc nội dung hoặc thuộc tính của tài nguyên. |
+| Write | Tạo, sửa hoặc xóa tài nguyên. |
+| Tagging | Thay đổi tag bằng các hành động dành riêng cho việc quản lý tag. |
+| Permissions management | Quản lý quyền truy cập. |
 
-A policy can include several access levels, with full or limited coverage of the actions in each level. For example, `s3:GetObject` is a Read action, while `s3:PutObject` is a Write action.
+Một policy có thể chứa nhiều mức truy cập, với toàn bộ hoặc chỉ một phần hành động trong mỗi mức. Ví dụ, `s3:GetObject` thuộc mức Read, còn `s3:PutObject` thuộc mức Write.
 
-These levels describe actions. They do not, by themselves, establish which resources are accessible or which conditions must be satisfied.
+Các mức này mô tả hành động. Chúng chưa xác định đầy đủ tài nguyên nào được truy cập hoặc điều kiện nào cần đáp ứng.
 
-Source: [Access levels in policy summaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_understand-policy-summary-access-level-summaries.html).
+Nguồn: [Các mức truy cập trong bản tóm tắt policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_understand-policy-summary-access-level-summaries.html).
 
-To describe scope precisely, inspect:
+Để mô tả chính xác phạm vi, cần xem:
 
-- `Action`: which operations are covered.
-- `Resource`: which resources are covered, where that element applies.
-- `Principal`: who is covered, where that element applies.
-- `Condition`: additional requirements, such as matching attributes or request context.
+- `Action`: những thao tác nào được đề cập.
+- `Resource`: những tài nguyên nào được đề cập, khi loại policy đó sử dụng trường này.
+- `Principal`: những đối tượng nào được đề cập, khi loại policy đó sử dụng trường này.
+- `Condition`: điều kiện bổ sung, chẳng hạn thuộc tính phải khớp hoặc yêu cầu về ngữ cảnh truy cập.
 
-Not every policy type accepts every element in the same way. These are policy document elements, not additional policy categories.
+Không phải mọi loại policy đều chấp nhận các trường theo cùng một cách. Đây là các thành phần của tài liệu policy, không phải các nhóm policy bổ sung.
 
-Source: [IAM JSON policy elements](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html).
+Nguồn: [Các thành phần trong IAM JSON policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html).
 
-## 7. Classify by authorization design: RBAC and ABAC
+## 7. Phân loại theo cách thiết kế phân quyền: RBAC và ABAC
 
-| Model | Basis for permissions | Example |
+| Mô hình | Căn cứ cấp quyền | Ví dụ |
 | --- | --- | --- |
-| Role-based access control (RBAC) | Job function or organizational responsibility | Different permission policies for developers and auditors. |
-| Attribute-based access control (ABAC) | Attributes, commonly principal and resource tags | Allow access when the principal's Project tag matches the resource's Project tag. |
+| Role-based access control (RBAC) | Vai trò công việc hoặc trách nhiệm trong tổ chức | Bộ policy khác nhau cho lập trình viên và kiểm toán viên. |
+| Attribute-based access control (ABAC) | Thuộc tính, thường là tag của danh tính và tài nguyên | Cho phép truy cập khi tag Project của danh tính khớp tag Project của tài nguyên. |
 
-These are design strategies implemented with policies. They do not replace identity-based or resource-based classifications.
+Đây là các cách thiết kế phân quyền được triển khai bằng policy. Chúng tồn tại song song với cách phân loại identity-based và resource-based.
 
-The "role" in RBAC means a job function or responsibility; it is not synonymous with the IAM role resource. A policy design can combine job-based permissions with attribute-based conditions.
+"Role" trong RBAC có nghĩa là vai trò công việc hoặc trách nhiệm; nó không đồng nghĩa với tài nguyên IAM role. Một thiết kế có thể kết hợp bộ quyền theo công việc với điều kiện dựa trên thuộc tính.
 
-Source: [ABAC and its comparison with RBAC](https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction_attribute-based-access-control.html).
+Nguồn: [ABAC và cách so sánh với RBAC](https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction_attribute-based-access-control.html).
 
-## 8. Classify by access relationship
+## 8. Phân loại theo quan hệ truy cập
 
-Access policies can also be described by the relationship between the caller and the target:
+Policy cũng có thể được mô tả theo quan hệ giữa bên gọi và đối tượng đích:
 
-- Same-account access: the principal and target are in the same AWS account.
-- Cross-account access: the principal and target are in different accounts.
-- AWS service access: an AWS service assumes a role to perform work.
-- Federated access: an external identity provider participates in access through a role.
+- Same-account: danh tính và đối tượng đích nằm trong cùng tài khoản AWS.
+- Cross-account: danh tính và đối tượng đích nằm trong các tài khoản khác nhau.
+- Truy cập của dịch vụ AWS: một dịch vụ AWS đảm nhận role để thực hiện công việc.
+- Federated access: danh tính từ hệ thống xác thực bên ngoài truy cập thông qua role.
 
-These are use cases rather than separate policy storage formats. They can overlap: a federated session can also access resources across accounts.
+Đây là các tình huống sử dụng, không phải các dạng lưu policy riêng. Chúng có thể kết hợp với nhau: một phiên của danh tính liên kết cũng có thể truy cập tài nguyên ở tài khoản khác.
 
-For cross-account role assumption, the target role must establish the appropriate trust relationship, and the caller must have permission to call `sts:AssumeRole`. A trust policy alone should not be treated as universal proof that a caller can assume a role.
+Với cross-account assume role, role đích phải thiết lập quan hệ tin cậy phù hợp và bên gọi phải có quyền gọi `sts:AssumeRole`. Chỉ nhìn trust policy chưa đủ để kết luận mọi bên gọi đều có thể đảm nhận role.
 
-Sources: [IAM roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html) and [AssumeRole permissions](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html).
+Nguồn: [IAM roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html) và [quyền gọi AssumeRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html).
 
-## 9. Distinguish access policies from other AWS policies
+## 9. Phân biệt policy truy cập với những policy AWS khác
 
-The word "policy" is broader than IAM authorization. AWS Organizations also offers policies that manage configuration or organizational behavior.
+Từ "policy" trong AWS có phạm vi rộng hơn việc cấp quyền trong IAM. AWS Organizations còn có các policy quản lý cấu hình hoặc cách vận hành ở cấp tổ chức.
 
-Examples include:
+Ví dụ:
 
-- Tag policies: standardize resource tags.
-- Backup policies: centrally manage backup plans.
-- AI services opt-out policies: manage AI-service data-collection preferences.
-- Declarative policies: centrally declare and maintain supported service configurations.
+- Tag policies: chuẩn hóa tag của tài nguyên.
+- Backup policies: quản lý tập trung các kế hoạch sao lưu.
+- AI services opt-out policies: quản lý lựa chọn về thu thập dữ liệu của dịch vụ AI.
+- Declarative policies: khai báo và duy trì tập trung cấu hình của dịch vụ được hỗ trợ.
 
-AWS Organizations distinguishes authorization policies, including SCPs and RCPs, from its declarative policy category. A tag-standardization policy has a different purpose from an IAM policy granting S3 access.
+AWS Organizations phân biệt authorization policies, gồm SCP và RCP, với nhóm declarative policies. Policy chuẩn hóa tag có mục đích khác với IAM policy cấp quyền truy cập S3.
 
-Source: [Managing organization policies](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies.html).
+Nguồn: [Quản lý policy trong AWS Organizations](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies.html).
 
-## 10. Worked example: one role, several classifications
+## 10. Ví dụ tổng hợp: một role có nhiều cách phân loại
 
-Consider an illustrative role named `ApplicationReadDataRole`:
+Xét role minh họa tên `ApplicationReadDataRole`:
 
-1. Its trust policy permits the EC2 service to assume it.
-2. A customer managed policy named `ApplicationReadData` is attached as a permissions policy and allows reading application objects in S3.
-3. An optional permissions boundary limits the permissions its identity-based policies may grant.
+1. Trust policy cho phép dịch vụ EC2 đảm nhận role.
+2. Customer managed policy tên `ApplicationReadData` được gắn làm permissions policy, cho phép đọc đối tượng của ứng dụng trong S3.
+3. Một permissions boundary tùy chọn giới hạn quyền mà các identity-based policies của role có thể cấp.
 
-The same components can be described from several viewpoints:
+Cùng những thành phần này có thể được mô tả theo nhiều góc nhìn:
 
-| Component | Function | Type or scope | Storage or maintenance |
+| Thành phần | Chức năng | Loại hoặc phạm vi | Cách lưu hoặc quản lý |
 | --- | --- | --- | --- |
-| Role trust policy | Authorize role assumption | Resource-based; attached to the role | Stored directly on the role |
-| ApplicationReadData policy | Grant application permissions | Identity-based; Read actions | Customer managed; standalone and reusable |
-| Optional boundary | Limit identity-policy grants | Permissions boundary on the role | Uses a managed policy |
+| Role trust policy | Cho phép đảm nhận role | Resource-based; gắn vào role | Lưu trực tiếp trên role |
+| Policy ApplicationReadData | Cấp quyền cho ứng dụng | Identity-based; hành động mức Read | Customer managed; tồn tại độc lập và có thể dùng chung |
+| Boundary tùy chọn | Giới hạn quyền do identity policy cấp | Permissions boundary trên role | Sử dụng một managed policy |
 
-The permissions policy describes the allowed S3 operations. The trust policy describes who may use the role. The boundary limits the identity-policy grants. Applicable organizational controls, session policies, resource policies, and explicit denies can also affect a request.
+Permissions policy mô tả các thao tác S3 được cho phép. Trust policy xác định ai được sử dụng role. Boundary giới hạn quyền do identity policy cấp. Các policy ở cấp tổ chức, session policy, resource policy và explicit deny có liên quan cũng có thể ảnh hưởng đến yêu cầu truy cập.
 
-This example illustrates how the classifications combine; it does not describe the current deployed configuration of this repository.
+Ví dụ này minh họa cách kết hợp các góc phân loại; nó không mô tả cấu hình đang được triển khai của repository này.
 
-Sources: [IAM roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html), [managed and inline policies](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html), and [permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html).
+Nguồn: [IAM roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html), [managed policies và inline policies](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html), và [permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html).
